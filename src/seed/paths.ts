@@ -24,28 +24,16 @@ export function getRepoRoot(): string {
   return cachedProject.repoRoot;
 }
 
-function assertSeedLayout(layout: ProjectLayout): void {
-  if (!layout.applicationDir) {
-    failFast(
-      'Seed test requer camada Application ABP em src/*Application.\n' +
-        `  Repositório: ${cachedProject.repoRoot}\n` +
-        '  Nenhuma pasta *Application encontrada em src/.',
-    );
-  }
-
-  if (!layout.angularAppDir) {
-    failFast(
-      'Seed test requer frontend Angular (ex.: angular/src/app).\n' +
-        `  Repositório: ${cachedProject.repoRoot}\n` +
-        '  Nenhum diretório de app Angular detectado.',
-    );
-  }
+export function checkSeedLayout(layout: ProjectLayout): boolean {
+  return !!(layout.applicationDir && layout.angularAppDir);
 }
 
 export function buildSeedTargets(): SeedTarget[] {
   cachedProject = resolveProject(moduleUrl);
   const layout = cachedProject.layout;
-  assertSeedLayout(layout);
+  if (!checkSeedLayout(layout)) {
+    return [];
+  }
 
   const applicationDir = layout.applicationDir!;
   const angularAppDir = layout.angularAppDir!;

@@ -9,7 +9,11 @@ import { listInstalledSeedPaths } from '../src/seed/uninstall-fixtures.js';
 const runnerRoot = resolve(import.meta.dirname, '..');
 
 describe('seed fixtures', () => {
-  it('manifest e arquivos fixture existem', () => {
+  it('manifest e arquivos fixture existem', (t) => {
+    if (buildSeedTargets().length === 0) {
+      t.skip('projeto não possui layout ABP (src/*Application + angular/src/app)');
+      return;
+    }
     assert.ok(existsSync(resolve(FIXTURES_ROOT, 'expected-scenarios.json')));
     const seedTargets = buildSeedTargets();
     for (const target of seedTargets) {
@@ -21,7 +25,11 @@ describe('seed fixtures', () => {
     assert.ok(manifest.minimumRequired >= 5);
   });
 
-  it('cada fixture contém marcador CURSOR-REVIEWER-SEED', () => {
+  it('cada fixture contém marcador CURSOR-REVIEWER-SEED', (t) => {
+    if (buildSeedTargets().length === 0) {
+      t.skip('projeto não possui layout ABP (src/*Application + angular/src/app)');
+      return;
+    }
     const seedTargets = buildSeedTargets();
     for (const target of seedTargets) {
       const content = readFileSync(target.fixturePath, 'utf8');
@@ -66,7 +74,11 @@ describe('evaluateSeedResponse', () => {
 });
 
 describe('workspace seed hygiene', () => {
-  it('lista paths instalados quando seeds estão no workspace', () => {
+  it('lista paths instalados quando seeds estão no workspace', (t) => {
+    if (buildSeedTargets().length === 0) {
+      t.skip('projeto não possui layout ABP (src/*Application + angular/src/app)');
+      return;
+    }
     const installed = listInstalledSeedPaths();
     assert.ok(Array.isArray(installed));
   });

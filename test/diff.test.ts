@@ -13,7 +13,7 @@ import {
   toShortRef,
 } from '../src/git/diff.js';
 import { installSeedFixtures } from '../src/seed/install-fixtures.js';
-import { getRepoRoot } from '../src/seed/paths.js';
+import { buildSeedTargets, getRepoRoot } from '../src/seed/paths.js';
 import { uninstallSeedFixtures } from '../src/seed/uninstall-fixtures.js';
 
 function createTempGitRepo(prefix: string): string {
@@ -54,7 +54,11 @@ describe('mergeUniquePaths', () => {
 });
 
 describe('getUncommittedFileNames (seed install)', () => {
-  it('inclui fixtures seed temporárias sem commit', () => {
+  it('inclui fixtures seed temporárias sem commit', (t) => {
+    if (buildSeedTargets().length === 0) {
+      t.skip('projeto não possui layout ABP (src/*Application + angular/src/app)');
+      return;
+    }
     installSeedFixtures(() => {});
     try {
       const repoRoot = getRepoRoot();
