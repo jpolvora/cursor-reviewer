@@ -101,6 +101,12 @@ export async function getPullRequestReviewContext(
       status: string;
       summary: string;
     }> = [];
+    const resolvedContextRows: Array<{
+      filePath: string;
+      lineNumber: number;
+      status: string;
+      summary: string;
+    }> = [];
     const activeThreads: ActiveThreadInfo[] = [];
     const pendingThreads = extractPendingThreads(existingThreads, botTag);
 
@@ -146,13 +152,23 @@ export async function getPullRequestReviewContext(
           botCommentId: botComment.id,
           hasResolutionReply: threadHasResolutionReply(thread, botTag),
         });
+      } else {
+        // Threads do bot já resolvidas (fixed/wontFix/closed/byDesign): NÃO entram no
+        // dedup determinístico (existingKeys), mas viram memória para o LLM não
+        // re-levantar problemas já tratados sem nova evidência (evita loop de re-litígio).
+        resolvedContextRows.push({
+          filePath: normalizedPath,
+          lineNumber,
+          status: threadStatus,
+          summary: getReviewSummaryFromComment(botComment.content, botTag),
+        });
       }
     }
 
     log(`Found ${pendingThreads.length} pending thread(s) on PR (all authors).`);
     log(`Found ${activeThreads.length} active bot thread(s) eligible for resolution.`);
 
-    if (activeContextRows.length === 0) {
+    if (activeContextRows.length === 0 && resolvedContextRows.length === 0) {
       return {
         existingKeys,
         contextForLlm: '',
@@ -169,6 +185,8 @@ export async function getPullRequestReviewContext(
 - If the current diff already addresses an **active** issue, add that thread to \`resolvedThreads\` with \`threadId\` or \`fileName\`+\`lineNumber\` and a note explaining what was fixed.
 - Do NOT auto-resolve a thread just because the line disappeared from the diff — only resolve when you verified the underlying issue no longer exists.
 
+### Active threads (open)
+
 `;
 
     if (activeContextRows.length > 0) {
@@ -179,6 +197,21 @@ export async function getPullRequestReviewContext(
       }
     } else {
       contextForLlm += '_No active bot review threads at the moment._\n';
+    }
+
+    if (resolvedContextRows.length > 0) {
+      contextForLlm += `
+### Already resolved threads (memory — do NOT re-raise without new evidence)
+
+These issues were reported in a previous round and already resolved/closed. Do **not** create new reviews for them unless tools prove the problem was **reintroduced** by the current diff. This prevents an endless fix→review loop.
+
+| File | Line | Status | Summary |
+|------|------|--------|----------|
+`;
+      for (const row of resolvedContextRows) {
+        const escapedSummary = row.summary.replace(/\|/g, '/');
+        contextForLlm += `| ${row.filePath} | ${row.lineNumber} | ${row.status} | ${escapedSummary} |\n`;
+      }
     }
 
     return {

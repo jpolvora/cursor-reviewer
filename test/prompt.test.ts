@@ -28,6 +28,7 @@ function minimalConfig(skillPath: string, systemPromptPath: string): ReviewerCon
     skillPath,
     systemPromptPath,
     projectName: 'TestProject',
+    maxRounds: 3,
   };
 }
 

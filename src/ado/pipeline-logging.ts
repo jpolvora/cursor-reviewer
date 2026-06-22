@@ -2,6 +2,8 @@ import { writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { CodeReviewItem, GateEvaluation } from './types.js';
+import type { TokenUsageTotals } from '../agent/token-usage.js';
+import { formatTokenCount } from '../agent/token-usage.js';
 
 /**
  * Integração com os Azure Pipelines logging commands. Tornam o resultado do
@@ -56,6 +58,7 @@ export function buildReviewSummaryMarkdown(
   gate: GateEvaluation,
   reviews: CodeReviewItem[],
   dryRun: boolean,
+  tokenUsage?: TokenUsageTotals,
 ): string {
   const lines: string[] = [];
   lines.push('# Cursor Reviewer');
@@ -68,6 +71,20 @@ export function buildReviewSummaryMarkdown(
   lines.push(
     `- **Severidades:** 🛑 ${gate.severities.critical} · ⚠️ ${gate.severities.warning} · 💡 ${gate.severities.suggestion}`,
   );
+
+  if (tokenUsage && (tokenUsage.hasAuthoritativeUsage || tokenUsage.totalTokens > 0)) {
+    lines.push(
+      `- **Tokens input:** ${formatTokenCount(tokenUsage.inputTokens)}`,
+      `- **Tokens output:** ${formatTokenCount(tokenUsage.outputTokens)}`,
+      `- **Tokens total:** ${formatTokenCount(tokenUsage.totalTokens)}`,
+    );
+    if (tokenUsage.cacheReadTokens > 0 || tokenUsage.cacheWriteTokens > 0) {
+      lines.push(
+        `- **Cache read:** ${formatTokenCount(tokenUsage.cacheReadTokens)}`,
+        `- **Cache write:** ${formatTokenCount(tokenUsage.cacheWriteTokens)}`,
+      );
+    }
+  }
   lines.push('');
   lines.push('> Issues de review **não** bloqueiam a pipeline (exit 0). Trate as threads na PR.');
 
@@ -97,6 +114,7 @@ export function emitPipelineReviewOutput(
   gate: GateEvaluation,
   reviews: CodeReviewItem[],
   dryRun: boolean,
+  tokenUsage?: TokenUsageTotals,
   log: (msg: string) => void = console.log,
 ): void {
   if (!isAzurePipeline()) {
@@ -108,7 +126,7 @@ export function emitPipelineReviewOutput(
   }
 
   try {
-    const markdown = buildReviewSummaryMarkdown(gate, reviews, dryRun);
+    const markdown = buildReviewSummaryMarkdown(gate, reviews, dryRun, tokenUsage);
     const summaryPath = join(tmpdir(), `cursor-reviewer-summary-${process.pid}.md`);
     writeFileSync(summaryPath, markdown, 'utf8');
     log(`##vso[task.uploadsummary]${summaryPath}`);

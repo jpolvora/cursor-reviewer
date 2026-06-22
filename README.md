@@ -2,7 +2,7 @@
 
 Revisor automatizado de Pull Requests para **Azure DevOps**, usando o [**Cursor SDK**](https://cursor.com/docs/sdk/typescript) (`@cursor/sdk`) em modo agêntico. Executa análise profunda com o harness do repositório (`AGENTS.md`, `.cursor/rules/`, skill `code-review`) e publica threads acionáveis na PR. **Não corrige código** — o desenvolvedor trata as issues diretamente nas threads da PR.
 
-**Pipeline (exemplo):** [`azure-pipelines-cursor-code-review.yml`](../../azure-pipelines-cursor-code-review.yml)
+**Pipeline (exemplo):** [`azure-pipelines-cursor-code-review.yml`](azure-pipelines-cursor-code-review.yml)
 
 ---
 
@@ -14,6 +14,8 @@ Além deste README, a subpasta [`docs/`](docs/) concentra a referência de fluxo
 |-----------|-----------|
 | [`docs/flow-analysis.md`](docs/flow-analysis.md) | **Referência única** — fluxo completo de análise e decisão (contexto, fases do agente, gate, work items, o que vira thread real) |
 | [`docs/two-phase-execution-model.md`](docs/two-phase-execution-model.md) | Modelo de execução — por que as duas fases rodam numa chamada única ao agente e quando multi-agente faria sentido |
+| [`docs/faq.md`](docs/faq.md) | FAQ — fluxo em ordem de execução, US/Task no prompt, configuração, ADO |
+| [`docs/score_calc.md`](docs/score_calc.md) | Score 0–10 e severidade — rubrica de atribuição, gate programático e exemplos |
 
 ---
 
@@ -21,7 +23,7 @@ Além deste README, a subpasta [`docs/`](docs/) concentra a referência de fluxo
 
 O subprojeto `cursor-reviewer` é **completamente autocontido** e não acessa arquivos externos de skills fora do seu próprio subdiretório.
 
-O runner pode ser executado a partir de sua própria raiz e configurado para atuar em qualquer repositório Git alvo usando o parâmetro `--repo-root <caminho>` ou a variável de ambiente `CURSOR_REVIEWER_REPO_ROOT`. Por padrão, se não forem configurados, o runner assume o caminho `../../` relativo à sua própria pasta (ou seja, assume que reside em `scripts/cursor-reviewer` sob a raiz do projeto principal). O runner valida que o diretório resolvido contém uma pasta `.git` válida e falha imediatamente (exit 1) caso os pré-requisitos abaixo não sejam atendidos.
+O runner pode ser executado a partir de sua própria raiz e configurado para atuar em qualquer repositório Git alvo usando o parâmetro `--repo-root <caminho>` ou a variável de ambiente `CURSOR_REVIEWER_REPO_ROOT`. Por padrão, o runner assume o caminho `../../` relativo à sua própria pasta (ou seja, assume que reside em `scripts/cursor-reviewer` sob a raiz do projeto principal). Quando executado como repositório autônomo, o runner detecta automaticamente a raiz do projeto.
 
 | Arquivo local de Prompt / Skill | Editável / Customizável | Descrição |
 |---------------------------------|-------------------------|-----------|
@@ -156,7 +158,6 @@ Threads de humanos ou de outros bots **não** entram no resumo de pendentes do b
 ### `.env`
 
 ```bash
-cd scripts/cursor-reviewer
 cp .env.example .env
 ```
 
@@ -190,7 +191,7 @@ O modelo é passado ao Cursor SDK como `model: { id: ... }` em `src/agent/stream
 **Local (`.env`):**
 
 ```bash
-# scripts/cursor-reviewer/.env
+# .env
 CURSOR_REVIEWER_MODEL=composer-2.5
 ```
 
@@ -212,15 +213,15 @@ IDs comuns (consulte `Cursor.models.list()`): `composer-2.5` (default, canônico
 
 ## Azure Pipelines — configuração e publicação
 
-O subprojeto inclui um **template de pipeline pronto para uso**: [`azure-pipelines-cursor-code-review.yml`](azure-pipelines-cursor-code-review.yml). Copie-o para a **raiz do seu repositório** e ajuste as duas variáveis marcadas com `← CONFIGURE`.
+O projeto inclui um **template de pipeline pronto para uso**: [`azure-pipelines-cursor-code-review.yml`](azure-pipelines-cursor-code-review.yml). Copie-o para a **raiz do seu repositório** (se usar como submódulo) e ajuste as variáveis marcadas com `← CONFIGURE`.
 
 ### Quick Start
 
 ```bash
-# 1. Copie o template para a raiz do repo
-cp scripts/cursor-reviewer/azure-pipelines-cursor-code-review.yml ./
+# Usando como submódulo (caminho relativo):
+cp cursor-reviewer/azure-pipelines-cursor-code-review.yml ./
 
-# 2. Edite as variáveis CONFIGURE no YAML:
+# Ou, se o repositório já contém o pipeline na raiz, ajuste apenas:
 #    - group: vg-seu-projeto-ai        ← nome do seu variable group
 #    - REVIEWER_DIR: scripts/cursor-reviewer  ← path do subprojeto (ajuste se diferente)
 ```
@@ -317,7 +318,7 @@ Ver **[SEED-ISSUES.md](./SEED-ISSUES.md)** para o caso de teste com 6 erros inte
 ### Pré-requisitos
 
 - Node.js 22.13+
-- `npm install` em `scripts/cursor-reviewer`
+- `npm install`
 - `.env` com `CURSOR_API_KEY` válida
 
 ### Dry-run básico (recomendado)
@@ -325,7 +326,6 @@ Ver **[SEED-ISSUES.md](./SEED-ISSUES.md)** para o caso de teste com 6 erros inte
 Detecta automaticamente a branch git atual como source e `refs/heads/master` como target:
 
 ```bash
-cd scripts/cursor-reviewer
 npm run review -- --dry-run
 ```
 
@@ -522,13 +522,16 @@ Pipeline: SUCESSO (exit 0 — issues de review não bloqueiam a build)
 ## Estrutura do projeto
 
 ```
-scripts/cursor-reviewer/
+./
 ├── .env                    # Variáveis locais (gitignored)
 ├── .env.example            # Template do .env
 ├── package.json            # Scripts npm
 ├── tsconfig.json
-├── docs/                   # Documentação complementar (fluxo)
-│   └── flow-analysis.md    # Fluxo de análise e decisão (referência única)
+├── docs/                   # Documentação complementar (fluxo + score/severidade + FAQ)
+│   ├── flow-analysis.md    # Fluxo de análise e decisão (referência única)
+│   ├── faq.md              # FAQ do processo de review
+│   ├── score_calc.md       # Score 0–10 e classificação de severidade
+│   └── two-phase-execution-model.md
 ├── skills/                 # Prompts customizáveis carregados em runtime
 │   ├── SYSTEM_PROMPT.md    # Contrato portável (read-only + JSON)
 │   └── CODE_REVIEW.md      # Roteamento para harness do projeto
@@ -600,7 +603,7 @@ scripts/cursor-reviewer/
 
 ### `CURSOR_API_KEY é obrigatório`
 
-1. Confirme que `.env` existe em `scripts/cursor-reviewer/`
+1. Confirme que `.env` existe
 2. Verifique se a chave está preenchida
 3. Use `npm run review` (carrega `--env-file=.env` automaticamente)
 
@@ -630,11 +633,9 @@ O parser tenta sanitizar aspas e quebras de linha. Se persistir, rode com `--ver
 
 | Recurso | Caminho |
 |---------|---------|
-| Fluxo de análise e decisão | `scripts/cursor-reviewer/docs/flow-analysis.md` |
-| Instruções de harness (runner) | `scripts/cursor-reviewer/skills/CODE_REVIEW.md` |
-| System Prompt / contrato JSON | `scripts/cursor-reviewer/skills/SYSTEM_PROMPT.md` |
-| Skill code-review (projeto) | `.agents/skills/code-review/SKILL.md` |
-| Contrato ADO (referência) | `scripts/code-review/README.md` |
-| Prompt JSON legado (PowerShell) | `scripts/code-review/prompts/exemplo.codereviewprompt.md` |
+| Fluxo de análise e decisão | `docs/flow-analysis.md` |
+| Instruções de harness (runner) | `skills/CODE_REVIEW.md` |
+| System Prompt / contrato JSON | `skills/SYSTEM_PROMPT.md` |
+| Skill code-review (projeto alvo) | `.agents/skills/code-review/SKILL.md` |
 | Pipeline YAML | `azure-pipelines-cursor-code-review.yml` |
 | Cursor SDK Docs | https://cursor.com/docs/sdk/typescript |

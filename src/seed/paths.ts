@@ -24,11 +24,7 @@ export function getRepoRoot(): string {
   return cachedProject.repoRoot;
 }
 
-export function checkSeedLayout(layout: ProjectLayout): boolean {
-  return !!(layout.applicationDir && layout.angularAppDir);
-}
-
-export function assertSeedLayoutOrThrow(layout: ProjectLayout): void {
+function assertSeedLayout(layout: ProjectLayout): void {
   if (!layout.applicationDir) {
     failFast(
       'Seed test requer camada Application ABP em src/*Application.\n' +
@@ -49,9 +45,7 @@ export function assertSeedLayoutOrThrow(layout: ProjectLayout): void {
 export function buildSeedTargets(): SeedTarget[] {
   cachedProject = resolveProject(moduleUrl);
   const layout = cachedProject.layout;
-  if (!checkSeedLayout(layout)) {
-    return [];
-  }
+  assertSeedLayout(layout);
 
   const applicationDir = layout.applicationDir!;
   const angularAppDir = layout.angularAppDir!;

@@ -34,6 +34,9 @@ export interface ReviewerConfig {
   skillPath: string;
   systemPromptPath: string;
   projectName: string;
+
+  /** Orçamento de rodadas fix→review antes de escalar para revisão humana (0 desabilita). */
+  maxRounds: number;
 }
 
 export interface CliArgs {
@@ -57,6 +60,18 @@ const DEFAULT_INCLUDE = ['**/*.cs', '**/*.ts', '**/*.html', '*.cs', '*.ts', '*.h
 const DEFAULT_MODEL = DEFAULT_CURSOR_REVIEWER_MODEL;
 
 const BASE_EXCLUDE = ['*/proxy/*', '*/bin/*', '*/obj/*', '*.md', '*.csproj', 'secret.txt'];
+
+const DEFAULT_MAX_ROUNDS = 5;
+
+/** Lê um inteiro >= 0 de env; usa fallback se ausente, inválido ou macro ADO. */
+function parseNonNegativeInt(value: string | undefined, fallback: number): number {
+  const trimmed = value?.trim() ?? '';
+  if (!trimmed || isUnexpandedPipelineMacro(trimmed)) {
+    return fallback;
+  }
+  const parsed = Number.parseInt(trimmed, 10);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
+}
 
 function parseCsvPatterns(value: string | undefined): string[] {
   if (!value?.trim()) return [];
@@ -337,6 +352,7 @@ export function loadConfig(argv: string[] = process.argv.slice(2)): ReviewerConf
     skillPath: resolvedProject.codeReviewSkillPath,
     systemPromptPath: resolvedProject.systemPromptPath,
     projectName: resolvedProject.projectName,
+    maxRounds: parseNonNegativeInt(process.env.CURSOR_REVIEWER_MAX_ROUNDS, DEFAULT_MAX_ROUNDS),
   };
 }
 

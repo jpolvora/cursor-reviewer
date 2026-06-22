@@ -1,6 +1,12 @@
 import { Agent, CursorAgentError } from '@cursor/sdk';
 import type { LocalAgentOptions, Run } from '@cursor/sdk';
+import { logAgentPromptBeforeSend } from './log-prompt.js';
 import { resolveAgentModelSelection } from './model.js';
+import {
+  formatTokenUsageSummary,
+  TokenUsageAccumulator,
+  type TokenUsageTotals,
+} from './token-usage.js';
 import type { ReviewerConfig } from '../config.js';
 import type { Logger } from '../logger.js';
 
@@ -9,7 +15,10 @@ export interface AgentRunResult {
   runId: string;
   status: string;
   fullText: string;
+  tokenUsage: TokenUsageTotals;
 }
+
+export type { TokenUsageTotals };
 
 export interface RunAgentOptions {
   name: string;
@@ -70,8 +79,11 @@ export async function runAgentStream(
   let fullText = '';
   let timedOut = false;
   let activeRun: Run | undefined;
+  const tokenUsageTracker = new TokenUsageAccumulator();
   const localOptions = buildLocalOptions(config);
   logger.info(`Sandbox read-only: ${localOptions.sandboxOptions.enabled ? 'ON' : 'OFF'}`);
+
+  logAgentPromptBeforeSend(logger, options.prompt);
 
   // O SDK não aceita AbortSignal; o cancelamento correto de um run em andamento
   // é via run.cancel() (aborta stream + tool calls e faz run.wait() resolver
@@ -88,6 +100,7 @@ export async function runAgentStream(
   const attempt = async (local: LocalAgentOptions): Promise<AgentRunResult> => {
     fullText = '';
     activeRun = undefined;
+    tokenUsageTracker.reset();
     const agent = options.resumeAgentId
       ? await Agent.resume(options.resumeAgentId, {
           apiKey: config.cursorApiKey,
@@ -104,7 +117,11 @@ export async function runAgentStream(
     try {
       logger.info(`Agent ID: ${agent.agentId}`);
 
-      const run = await agent.send(options.prompt);
+      const run = await agent.send(options.prompt, {
+        onDelta: ({ update }) => {
+          tokenUsageTracker.applyInteractionUpdate(update);
+        },
+      });
       activeRun = run;
       const runId = run.id ?? 'pending';
       logger.info(`Run ID: ${runId}`);
@@ -183,6 +200,12 @@ export async function runAgentStream(
       logger.info('');
       logger.info(`Run concluído: ${result.status}`);
 
+      const tokenUsage = tokenUsageTracker.getTotals();
+      logger.section('Uso de tokens (SDK)');
+      for (const line of formatTokenUsageSummary(tokenUsage)) {
+        logger.info(line);
+      }
+
       // `result.result` é a saída final canônica do run (string). Preferimos ela
       // ao texto acumulado do stream (sujeito a fragmentação/reordenação); só
       // caímos para `fullText` quando o backend não popula `result`.
@@ -193,6 +216,7 @@ export async function runAgentStream(
         runId: result.id,
         status: result.status,
         fullText: finalText,
+        tokenUsage,
       };
     } finally {
       await agent[Symbol.asyncDispose]();

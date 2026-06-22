@@ -97,11 +97,12 @@ Variáveis: `CURSOR_REVIEWER_REVIEW_SELF`, `CURSOR_REVIEWER_EXTRA_EXCLUDE_PATTER
 
 | Uso | Escopo |
 |-----|--------|
-| **Dedup** (`existingKeys`) | Threads do bot com `filePath` — chave `path\|line:N` |
-| **Prompt LLM** | Só threads **active/pending** do bot — tabela resumida (~160 chars) |
+| **Dedup** (`existingKeys`) | Threads **active/pending** do bot com `filePath` — chave `path\|line:N` |
+| **Prompt LLM (ativas)** | Threads **active/pending** do bot — tabela "Active threads (open)" (~160 chars) |
+| **Prompt LLM (memória)** | Threads **fixed/wontFix/closed/byDesign** do bot — tabela "Already resolved threads" com instrução de **não re-levantar sem nova evidência** (anti-loop de re-litígio) |
 | **Gate** | Threads **active/pending** do bot `[Cursor Reviewer]` apenas |
 
-Threads de humanos **não** entram no prompt; **não** entram no resumo de pendentes do bot.
+Threads de humanos **não** entram no prompt; **não** entram no resumo de pendentes do bot. Threads resolvidas **não** entram no `existingKeys` (dedup determinístico) — viram apenas memória para o LLM decidir com nova evidência.
 
 ### Instruções fixas no prompt
 
@@ -160,7 +161,11 @@ Por candidato, provar com tools antes de publicar:
 3. Proteções ausentes (buscadas, não assumidas)
 4. Hipóteses descartadas → `analysis`
 
-Sem os 4 itens → **não entra em `reviews`**. No veredito final reaplica o gate anti-falso-positivo, combina achados na mesma linha e emite **somente** o bloco ` ```json `.
+Sem os 4 itens → **não entra em `reviews`**.
+
+**Generalização por classe (passo 2.5, obrigatório):** para cada achado comprovado, varrer (`grep`/`glob`) ocorrências irmãs do mesmo padrão nos arquivos elegíveis e reportar **todas** na mesma resposta — não deixar irmãs para a próxima rodada (evita whack-a-mole). Alinhado ao mandato de **completude na mesma rodada** do `SYSTEM_PROMPT.md` (precisão por achado, recall completo por rodada → convergência em ~1 rodada).
+
+No veredito final reaplica o gate anti-falso-positivo, confirma que percorreu todos os arquivos elegíveis, combina achados na mesma linha e emite **somente** o bloco ` ```json `.
 
 ---
 
@@ -252,6 +257,20 @@ Chave: `caminhoNormalizado|line:N` — não reposta na mesma linha.
 Agente retorna `resolvedThreads` com `threadId` ou `fileName`+`lineNumber`. Só resolve quando **verificou** a correção (não porque a linha sumiu do diff). Reply com `<!-- resolution-reply -->` + status `fixed`.
 
 Após resolução, `index.ts` **refresh** das threads pendentes antes de postar novos reviews.
+
+---
+
+## Convergência — orçamento de rodadas (`ado/round-state.ts`)
+
+Garante a terminação do loop `fix-pr ↔ reviewer`:
+
+- **Estado persistido:** thread geral (sem `filePath`) com marcador `<!-- reviewer-round-state -->` e `Rodada: N`. Lida via `parseRoundStateFromThreads` (a partir de `allThreads`), atualizada via PATCH (uma única thread, sem spam).
+- **Rodada atual** = rodadas anteriores + 1 (só com contexto ADO).
+- **Escalonamento** (`decideRoundEscalation`): quando `currentRound > maxRounds` (`CURSOR_REVIEWER_MAX_ROUNDS`, default 5; `0` desabilita) **e** há reviews novos ou threads pendentes do bot.
+- **Em escalonamento:** `splitReviewsForEscalation` mantém só `critical`; warnings/suggestions são suprimidos; `persistRoundState` grava o aviso de **revisão humana recomendada**. Resolução de threads confirmadas segue normal.
+- **Persistência:** somente quando a rodada teve issues (`hasOpenIssues || escalate`). Dry-run apenas loga a decisão (sem POST/PATCH).
+
+Complementa o *recall* da rodada 1 (mandato de completude no `SYSTEM_PROMPT.md` + passo 2.5 de generalização por classe): a rodada 1 tende a achar tudo; o orçamento garante que rodadas residuais não gerem apontamentos infinitos.
 
 ---
 
@@ -357,6 +376,7 @@ scripts/cursor-reviewer/
 │   ├── review-validation.ts  Contrato publicável (score, campos obrigatórios)
 │   ├── post-comments.ts      Publicação, resolução, reviewSummary
 │   ├── pipeline-logging.ts   Logging commands ADO (logissue + uploadsummary)
+│   ├── round-state.ts        Orçamento de rodadas + escalonamento (convergência)
 │   └── gate.ts               Resumo de issues (exit 0 na pipeline)
 ├── src/parser/review-response.ts  JSON robusto
 └── docs/                     Documentação complementar (este arquivo)

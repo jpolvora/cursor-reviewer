@@ -196,6 +196,13 @@ function buildTwoPhaseWorkflow(context: PromptContext): string[] {
     '2. Aplique o filtro de publicação: score ≤ 5 → omita; só `fix-code` ou `escalate`.',
     '3. Combine múltiplos achados na **mesma linha** em um único review.',
     '4. Preencha `comment` (amigável, sem código); `suggestedFix` só se houver patch cirúrgico claro (senão `""`).',
+    '',
+    '#### 2.5 — Generalização por classe de defeito (obrigatória — evita whack-a-mole)',
+    '',
+    'Para **cada achado comprovado**, antes de finalizar: use `grep`/`glob` para procurar **ocorrências irmãs do mesmo padrão** em todos os arquivos elegíveis do diff.',
+    '',
+    '- Exemplos: `[Authorize]` ausente num endpoint → verifique os demais endpoints alterados; validação ausente de `DateTime`/`Guid.Empty`/enum num DTO → verifique os demais DTOs; `.Result`/`.Wait()` num método → verifique os demais.',
+    '- Reporte **todas** as ocorrências da classe nesta mesma resposta (um review por linha responsável, ou um review citando todas em `impactPaths`). **Não** reporte só a primeira e deixe as irmãs para a próxima rodada — isso quebra a convergência.',
   ];
 }
 
@@ -205,10 +212,11 @@ function buildVerdictAndAdoPolicy(): string[] {
     '### Veredito final',
     '',
     '1. Releia cada review contra o filtro de publicação do System Prompt.',
-    '2. **Não duplique** threads ADO existentes (contexto abaixo).',
-    '3. `resolvedThreads`: somente se **verificou** via tools que o problema foi corrigido.',
-    '4. PR sem issues novas: `"reviews": []` + `reviewSummary` positivo.',
-    '5. Emita **somente** o bloco JSON — sem narrativa fora do JSON.',
+    '2. **Completude:** confirme que percorreu **todos** os arquivos elegíveis e que cada achado real e comprovado foi incluído — não reserve achados para rodadas futuras (convergência em uma rodada).',
+    '3. **Não duplique** threads ADO existentes (contexto abaixo), incluindo a tabela de threads **já resolvidas** — não re-levante um problema resolvido sem **nova evidência** de que voltou.',
+    '4. `resolvedThreads`: somente se **verificou** via tools que o problema foi corrigido.',
+    '5. PR sem issues novas: `"reviews": []` + `reviewSummary` positivo.',
+    '6. Emita **somente** o bloco JSON — sem narrativa fora do JSON.',
   ];
 }
 
