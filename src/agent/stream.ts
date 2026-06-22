@@ -194,6 +194,7 @@ export async function runAgentStream(
       }
 
       if (result.status === 'error') {
+        logger.error(`\n[DETALHES DO ERRO] Run result:\n${JSON.stringify(result, Object.getOwnPropertyNames(result), 2)}`);
         throw new Error(`Run falhou (id=${result.id}). Inspecione a saída verbosa acima.`);
       }
 
@@ -239,6 +240,18 @@ export async function runAgentStream(
       throw error;
     }
   } catch (error) {
+    logger.error('\n[DETALHES DO ERRO FATAL - SDK/AGENT]');
+    if (error instanceof Error) {
+      logger.error(`Message: ${error.message}`);
+      if (error.cause) logger.error(`Cause: ${error.cause}`);
+      logger.error(`Stack: ${error.stack}`);
+    }
+    try {
+      logger.error(`Raw Error Dump:\n${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`);
+    } catch {
+      logger.error(`Raw Error Dump (fallback): ${String(error)}`);
+    }
+
     if (error instanceof CursorAgentError) {
       logger.error(`Falha no agente: ${error.message} (retryable=${error.isRetryable})`);
       process.exitCode = 1;
