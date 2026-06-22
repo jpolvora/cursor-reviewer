@@ -1,4 +1,5 @@
 import type { CodeReviewItem, GateEvaluation, PendingPrThread, ReviewSeverity } from './types.js';
+import { formatTokenCount, type TokenUsageTotals } from '../agent/token-usage.js';
 
 export function countSeverities(reviews: CodeReviewItem[]): Record<ReviewSeverity, number> {
   const counts: Record<ReviewSeverity, number> = { critical: 0, warning: 0, suggestion: 0 };
@@ -71,6 +72,7 @@ export function formatGateSummary(
   agentId: string,
   runId: string,
   dryRun: boolean,
+  tokenUsage?: TokenUsageTotals,
 ): string {
   const statusIcon = gate.shouldFail ? '⚠️' : '✅';
   const statusLabel = gate.shouldFail ? 'COM ISSUES PENDENTES' : 'SEM ISSUES';
@@ -88,12 +90,32 @@ export function formatGateSummary(
     `│ Threads resolvidas:  ${gate.resolvedCount}`,
     `│ Threads pendentes:   ${gate.pendingThreadCount}`,
     `│ Severidades:         🛑 ${gate.severities.critical}  ⚠️ ${gate.severities.warning}  💡 ${gate.severities.suggestion}`,
+  ];
+
+  if (tokenUsage && (tokenUsage.hasAuthoritativeUsage || tokenUsage.totalTokens > 0)) {
+    lines.push(
+      '├───────────────────────────────────────────────',
+      `│ Tokens input:        ${formatTokenCount(tokenUsage.inputTokens)}`,
+      `│ Tokens output:       ${formatTokenCount(tokenUsage.outputTokens)}`,
+      `│ Tokens total:        ${formatTokenCount(tokenUsage.totalTokens)}`,
+    );
+    if (tokenUsage.cacheReadTokens > 0 || tokenUsage.cacheWriteTokens > 0) {
+      lines.push(
+        `│ Cache read:          ${formatTokenCount(tokenUsage.cacheReadTokens)}`,
+        `│ Cache write:         ${formatTokenCount(tokenUsage.cacheWriteTokens)}`,
+      );
+    }
+  } else if (tokenUsage) {
+    lines.push('├───────────────────────────────────────────────', '│ Tokens:              (não reportados)');
+  }
+
+  lines.push(
     '├───────────────────────────────────────────────',
     `│ Status: ${statusLabel}`,
     `│ Motivo: ${gate.reason}`,
     `│ Pipeline: SUCESSO (exit 0 — issues não bloqueiam)`,
     '└───────────────────────────────────────────────',
-  ];
+  );
 
   if (gate.pendingThreads.length > 0) {
     lines.push('', 'Threads pendentes:');

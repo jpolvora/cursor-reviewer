@@ -11,9 +11,16 @@ import {
   simulateThreadResolution,
 } from './ado/post-comments.js';
 import { getPullRequestReviewContext, filterGatePendingThreads } from './ado/review-context.js';
+import {
+  decideRoundEscalation,
+  parseRoundStateFromThreads,
+  persistRoundState,
+  splitReviewsForEscalation,
+} from './ado/round-state.js';
 import { getPullRequestWorkItemContext } from './ado/work-items.js';
 import type { CodeReviewItem, PendingPrThread, ReviewContextResult } from './ado/types.js';
 import { runCodeReviewAgent } from './agent/runner.js';
+import { EMPTY_TOKEN_USAGE } from './agent/token-usage.js';
 import { loadConfig, ProjectValidationError } from './config.js';
 import { buildDiffPromptSection } from './git/diff-prompt.js';
 import {
@@ -207,7 +214,12 @@ async function main(): Promise<void> {
           },
           logger,
         )
-      : { fullText: '{"reviews":[],"resolvedThreads":[],"reviewSummary":""}', agentId: 'skipped', runId: 'no-diff' };
+      : {
+          fullText: '{"reviews":[],"resolvedThreads":[],"reviewSummary":""}',
+          agentId: 'skipped',
+          runId: 'no-diff',
+          tokenUsage: EMPTY_TOKEN_USAGE,
+        };
   const agentElapsed = performance.now() - agentStartTime;
 
   if (diffStats.fileCount === 0) {
@@ -241,10 +253,41 @@ async function main(): Promise<void> {
   let pendingThreads = [...reviewContext.pendingThreads];
 
   const gatePendingBeforePost = filterGatePendingThreads(reviewContext.pendingThreads, config.botTag);
-  const wouldPostReviews = getNewReviewsFromPlan(
+  const wouldPostReviewsPre = getNewReviewsFromPlan(
     getCodeReviewPostingPlan(parsed, gatePendingBeforePost.length > 0).reviewsJson,
     reviewContext.existingKeys,
   );
+
+  // Frente C — orçamento de rodadas + escalonamento (garantia de convergência).
+  const priorRoundState = parseRoundStateFromThreads(reviewContext.allThreads, config.botTag);
+  const currentRound = hasAdoContext ? priorRoundState.round + 1 : 0;
+  const hasOpenIssues = wouldPostReviewsPre.length > 0 || gatePendingBeforePost.length > 0;
+  const escalate = decideRoundEscalation({ currentRound, maxRounds: config.maxRounds, hasOpenIssues });
+
+  let effectiveParsed = parsed;
+  let suppressedCount = 0;
+  if (escalate) {
+    const split = splitReviewsForEscalation(parsed.reviews);
+    suppressedCount = split.suppressed.length;
+    effectiveParsed = {
+      ...parsed,
+      reviews: split.kept,
+      reviewsJson: JSON.stringify({ reviews: split.kept }),
+      hasCriticalReviews: split.kept.some((review) => review.severity === 'critical'),
+      reviewSummary: '',
+    };
+    logger.warn(
+      `Escalonamento: rodada ${currentRound} > limite ${config.maxRounds}. ` +
+        `Suprimindo ${suppressedCount} apontamento(s) não-crítico(s); mantendo apenas critical. Revisão humana recomendada.`,
+    );
+  }
+
+  const wouldPostReviews = escalate
+    ? getNewReviewsFromPlan(
+        getCodeReviewPostingPlan(effectiveParsed, gatePendingBeforePost.length > 0).reviewsJson,
+        reviewContext.existingKeys,
+      )
+    : wouldPostReviewsPre;
 
   if (config.dryRun) {
     logger.section('DRY-RUN — JSON que seria publicado');
@@ -275,6 +318,12 @@ async function main(): Promise<void> {
           `[dry-run] Simulando resolução/recuperação: ${resolvedCount} thread(s) removida(s) do gate pendente.`,
         );
       }
+      if (currentRound > 0 && hasOpenIssues) {
+        logger.info(
+          `[dry-run] Rodada ${currentRound}${config.maxRounds > 0 ? `/${config.maxRounds}` : ''}` +
+            (escalate ? ` — ESCALONAMENTO (suprimiria ${suppressedCount} não-crítico(s); revisão humana).` : '.'),
+        );
+      }
     }
   } else if (ado) {
     logger.section('Resolvendo threads confirmadas pelo agente');
@@ -299,7 +348,7 @@ async function main(): Promise<void> {
     }
 
     const gatePendingBeforePost = filterGatePendingThreads(reviewContext.pendingThreads, config.botTag);
-    const postingPlan = getCodeReviewPostingPlan(parsed, gatePendingBeforePost.length > 0);
+    const postingPlan = getCodeReviewPostingPlan(effectiveParsed, gatePendingBeforePost.length > 0);
 
     logger.section('Publicando comentários na PR');
     const postedThreads = await setPullRequestComments(
@@ -341,6 +390,20 @@ async function main(): Promise<void> {
       (msg) => logger.debug(msg),
     );
     pendingThreads = refreshedContext.pendingThreads;
+
+    // Persiste o contador de rodadas (e o aviso de escalonamento) quando houve
+    // alguma issue nesta rodada — garante a convergência do loop fix→review.
+    if (currentRound > 0 && (hasOpenIssues || escalate)) {
+      logger.section('Atualizando estado de rodada');
+      await persistRoundState(
+        ado,
+        config.pullRequestId,
+        config.botTag,
+        { currentRound, maxRounds: config.maxRounds, escalate, suppressedCount },
+        priorRoundState,
+        (msg) => logger.info(msg),
+      );
+    }
   }
 
   const gatePending = filterGatePendingThreads(pendingThreads, config.botTag);
@@ -354,11 +417,13 @@ async function main(): Promise<void> {
   logger.section('Concluído');
   logger.info(`Agent: ${agentResult.agentId} | Run: ${agentResult.runId}`);
   logger.info(`Tempo total: ${formatElapsedMs(totalElapsed)}`);
-  console.log(formatGateSummary(gate, agentResult.agentId, agentResult.runId, config.dryRun));
+  console.log(
+    formatGateSummary(gate, agentResult.agentId, agentResult.runId, config.dryRun, agentResult.tokenUsage),
+  );
 
   // Visibilidade na build do Azure DevOps (aba Issues + resumo anexado).
   // No-op fora da pipeline; não altera o exit code (issues não bloqueiam).
-  emitPipelineReviewOutput(gate, postedReviews, config.dryRun);
+  emitPipelineReviewOutput(gate, postedReviews, config.dryRun, agentResult.tokenUsage);
 }
 
 main()

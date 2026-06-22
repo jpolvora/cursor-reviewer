@@ -2,6 +2,16 @@
   "name": "cursor-reviewer",
   "version": "0.1.0",
   "description": "Code reviewer agêntico portável (review-only) para pipeline Azure DevOps usando @cursor/sdk",
+  "license": "MIT",
+  "author": "Jone Polvora",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jpolvora/cursor-reviewer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jpolvora/cursor-reviewer/issues"
+  },
+  "homepage": "https://github.com/jpolvora/cursor-reviewer#readme",
   "type": "module",
   "scripts": {
     "build": "tsc",

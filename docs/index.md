@@ -1,0 +1,405 @@
+# Documentação — Cursor Reviewer
+
+> Documentação completa de configuração, uso e integração do `cursor-reviewer`.
+
+---
+
+## Índice
+
+- [Portabilidade e Customização de Prompts](#portabilidade-e-customização-de-prompts)
+- [Modos git (local vs CI)](#modos-git-local-vs-ci)
+- [Arquivos elegíveis](#arquivos-elegíveis)
+- [Resumo do review](#resumo-do-review)
+- [Configuração (.env)](#configuração-env)
+- [Alterar o modelo LLM](#alterar-o-modelo-llm)
+- [Azure Pipelines](#azure-pipelines)
+- [Como rodar localmente](#como-rodar-localmente)
+- [Branches (source vs target)](#branches-source-vs-target)
+- [Formato das threads](#formato-das-threads)
+- [Resposta JSON do agente](#resposta-json-do-agente)
+- [Seed issues](#seed-issues)
+- [Exemplo de execução](#exemplo-de-execução)
+- [Parâmetros CLI](#parâmetros-cli)
+- [Variáveis de ambiente (pipeline)](#variáveis-de-ambiente-pipeline)
+- [Troubleshooting](#troubleshooting)
+
+---
+
+## Portabilidade e Customização de Prompts
+
+O runner pode ser executado a partir de sua própria raiz e configurado para atuar em qualquer repositório Git alvo usando `--repo-root <caminho>` ou `CURSOR_REVIEWER_REPO_ROOT`. Por padrão, assume `../../` relativo à sua própria pasta (modo submódulo). Como repositório autônomo, detecta automaticamente a própria raiz.
+
+| Arquivo | Editável | Descrição |
+|---------|----------|-----------|
+| `skills/SYSTEM_PROMPT.md` | Sim | Contrato: read-only, duas fases, schema JSON |
+| `skills/CODE_REVIEW.md` | Sim | Roteamento para harness do projeto alvo |
+
+**Fail-fast:** erros de validação/config/execução encerram com exit 1. Issues de review não bloqueiam.
+
+---
+
+## Modos git (local vs CI)
+
+| Modo | Quando | Comportamento |
+|------|--------|---------------|
+| **Local** | Branch git atual = `--source-branch` | `HEAD` direto; diff `{targetRef}...HEAD` |
+| **Local + uncommitted** | `--include-uncommitted` ou `--seed-test` | Staged/unstaged/untracked vs HEAD |
+| **CI** | Detached HEAD ou branch diferente | `git fetch origin`; diff `origin/{target}...origin/{source}` |
+
+Se a ref target não existir localmente, fetch mínimo de `origin/{target}` (`--depth=1`).
+
+---
+
+## Arquivos elegíveis
+
+| Tipo | Padrões |
+|------|---------|
+| **Include** | `**/*.cs`, `**/*.ts`, `**/*.html`, `*.cs`, `*.ts`, `*.html` |
+| **Exclude (base)** | `*/proxy/*`, `*/bin/*`, `*/obj/*`, `*.md`, `*.csproj`, `secret.txt` |
+| **Exclude (self-review)** | Diretório do runner (dinâmico); fallback: `scripts/cursor-reviewer/**` |
+
+| Variável | Default | Descrição |
+|----------|---------|-----------|
+| `CURSOR_REVIEWER_REVIEW_SELF` | `false` | Inclui o próprio runner no review |
+| `CURSOR_REVIEWER_EXTRA_EXCLUDE_PATTERNS` | — | Globs extras separados por vírgula |
+
+Diff: `--diff-filter=AMR` (Added, Modified, Renamed). `--include-uncommitted` adiciona working tree.
+
+---
+
+## Resumo do review
+
+O runner publica threads na PR mas **não reprova a build** (exit 0). Desenvolvedor trata as threads diretamente na PR.
+
+- **Visibilidade ADO:** logging commands `##vso[task.logissue]` + `##vso[task.uploadsummary]`
+- **Dry-run:** simula sem POST real; exit 0
+- **Dedup:** chave `arquivoNormalizado\|line:N`
+- **Resolução:** match por `threadId` ou `fileName`+`lineNumber`
+- **ReviewSummary:** publicado só quando PR limpa (sem issues novas nem pendentes)
+
+| Exit code | Significado |
+|-----------|-------------|
+| 0 | Execução ok (com ou sem issues) |
+| 1 | Erro fatal |
+
+---
+
+## Configuração (.env)
+
+```bash
+cp .env.example .env
+```
+
+| Variável | Obrigatório | Descrição |
+|----------|-------------|-----------|
+| `CURSOR_API_KEY` | Sim | API key do Cursor |
+| `AZURE_DEVOPS_EXT_PAT` | Não* | PAT para ADO local |
+| `CURSOR_REVIEWER_MODEL` | Não | Modelo (default: `composer-2.5`) |
+| `CURSOR_REVIEWER_TARGET_BRANCH` | Não | Branch de diff (default: `refs/heads/master`) |
+| `CURSOR_REVIEWER_BOT_TAG` | Não | Tag do bot (default: `[Cursor Reviewer]`) |
+| `CURSOR_REVIEWER_VERBOSE` | Não | Logs (default: `true`) |
+| `CURSOR_REVIEWER_TIMEOUT_MS` | Não | Timeout (default: `600000`) |
+| `CURSOR_REVIEWER_SANDBOX` | Não | Sandbox read-only (default: `true`) |
+| `CURSOR_REVIEWER_DRY_RUN` | Não | Dry-run via env |
+| `CURSOR_REVIEWER_ADO_ORG` | Não | Org ADO (local) |
+| `CURSOR_REVIEWER_ADO_PROJECT` | Não | Projeto ADO |
+| `CURSOR_REVIEWER_ADO_REPO` | Não | Repositório ADO |
+| `CURSOR_REVIEWER_PR_ID` | Não | ID da PR |
+| `CURSOR_REVIEWER_REPO_ROOT` | Não | Raiz do repositório alvo |
+
+Carregamento: `tsx --env-file-if-exists=.env`.
+
+---
+
+## Alterar o modelo LLM
+
+Prioridade: CLI `--model` > env `CURSOR_REVIEWER_MODEL` > default `composer-2.5`.
+
+```bash
+# .env
+CURSOR_REVIEWER_MODEL=composer-2.5
+
+# flag pontual
+npm run review -- --dry-run --model claude-4.6-sonnet-medium-thinking
+```
+
+IDs comuns: `composer-2.5`, `composer-2.5-fast`, `claude-4.6-sonnet-medium-thinking`, `gpt-5.4-medium`.
+
+---
+
+## Azure Pipelines
+
+Template: [`azure-pipelines-cursor-code-review.yml`](azure-pipelines-cursor-code-review.yml)
+
+```bash
+# como submódulo
+cp cursor-reviewer/azure-pipelines-cursor-code-review.yml ./
+```
+
+### Variáveis do template
+
+| Variável | Descrição |
+|----------|-----------|
+| `group: vg-cursor-reviewer` | Variable group com `CURSOR_API_KEY` |
+| `REVIEWER_DIR` | Path do projeto (default: `scripts/cursor-reviewer`) |
+| `CURSOR_REVIEWER_TARGET_BRANCH` | Branch target |
+| `CURSOR_REVIEWER_MODEL` | Modelo LLM |
+
+### Pré-requisitos ADO
+
+1. Variable group com `CURSOR_API_KEY`
+2. Build Service com permissão **Contribute to pull requests**
+3. OAuth token habilitado
+4. Agent pool `ubuntu-latest` + Node 22.13+
+
+### Build Validation
+
+Pipeline com `trigger: none` — dispara via Build Validation em PR. Exit 0 mesmo com issues.
+
+### Variáveis detectadas automaticamente
+
+`SYSTEM_PULLREQUEST_SOURCEBRANCH`, `SYSTEM_PULLREQUEST_TARGETBRANCH`, `SYSTEM_PULLREQUEST_PULLREQUESTID`, `SYSTEM_COLLECTIONURI`, `SYSTEM_TEAMPROJECT`, `BUILD_REPOSITORY_NAME`, `SYSTEM_ACCESSTOKEN`.
+
+---
+
+## Como rodar localmente
+
+### Pré-requisitos
+
+- Node.js 22.13+
+- `npm install`
+- `.env` com `CURSOR_API_KEY`
+
+### Dry-run básico
+
+```bash
+npm run review -- --dry-run
+```
+
+### Atalhos shell
+
+```bash
+./run-local.sh                          # menu interativo
+./run-local.sh feat/minha-feature       # source explícita
+```
+
+```powershell
+.\run-local.ps1
+```
+
+### Opções CLI
+
+```bash
+# Branch específica
+npm run review -- --dry-run --source-branch refs/heads/nome-da-feature
+
+# Target customizado
+npm run review -- --dry-run \
+  --source-branch refs/heads/feat/x \
+  --target-branch refs/heads/develop
+
+# Com contexto ADO
+npm run review -- \
+  --dry-run \
+  --source-branch refs/heads/sua-feature \
+  --org sua-org \
+  --project SeuProjeto \
+  --repo SeuProjeto \
+  --pr-id 123
+```
+
+### Publicação real (sem `--dry-run`)
+
+Requer contexto ADO completo + token (`AZURE_DEVOPS_EXT_PAT` ou `SYSTEM_ACCESSTOKEN`).
+
+---
+
+## Branches (source vs target)
+
+| Branch | Origem | Default |
+|--------|--------|---------|
+| **Source** | PR branch / git atual / `--source-branch` | automático |
+| **Target** | `--target-branch` / env | `refs/heads/master` |
+
+Refs curtas (`master`) normalizadas para `refs/heads/...`.
+
+---
+
+## Formato das threads
+
+**Issue (thread active):**
+
+```
+[Cursor Reviewer]
+
+🛑 **CRITICAL:** Descrição objetiva...
+
+**Correção sugerida:**
+
+```csharp
+// patch cirúrgico
+```
+
+<details>
+<summary>🔍 Detalhes da Análise IA</summary>
+
+**Score:** 8/10 | **Ação dev:** fix-code
+
+**Análise:** ...
+**Caminhos analisados:** /src/Foo.cs, /test/FooTests.cs
+</details>
+```
+
+**Resumo positivo (thread closed):**
+
+```
+[Cursor Reviewer]
+<!-- review-summary -->
+Revisão concluída sem apontamentos.
+```
+
+---
+
+## Resposta JSON do agente
+
+Parser: último bloco ` ```json ` válido → fallback para último `{...}` com `reviews`.
+
+```json
+{
+  "reviews": [
+    {
+      "fileName": "/src/Exemplo.cs",
+      "lineNumber": 42,
+      "severity": "critical",
+      "comment": "Descrição objetiva",
+      "score": 8,
+      "developerAction": "fix-code",
+      "analysis": "Evidência, cenário, proteções, descartes",
+      "impactPaths": ["/src/Foo.cs"],
+      "suggestedFix": "```csharp\n// patch\n```"
+    }
+  ],
+  "resolvedThreads": [{ "threadId": 12345, "note": "..." }],
+  "reviewSummary": ""
+}
+```
+
+Campos obrigatórios: `fileName`, `lineNumber`, `severity`, `comment`, `score`, `developerAction`, `analysis`, `impactPaths`. `suggestedFix` opcional (fence por linguagem, nunca ` ```suggestion `). Score ≤ 5 → descartado.
+
+---
+
+## Seed issues
+
+Teste local com fixtures temporárias:
+
+```bash
+npm run test:seed
+```
+
+Sequência: `seed:install` → `--dry-run --seed-test` → avalia → `seed:uninstall`. Ver [`SEED-ISSUES.md`](SEED-ISSUES.md).
+
+---
+
+## Exemplo de execução
+
+```
+Cursor Reviewer
+Modo: DRY-RUN
+Source: refs/heads/feat/minha-feature → Target: refs/heads/master
+
+━ Preparando repositório local ━
+Repositório: /caminho/para/seu-projeto
+Diff: master...HEAD (abc1234..def5678)
+5 arquivo(s) elegível(is) no diff.
+
+━ Processando resposta do agente ━
+Reviews: 2 | Resolved threads: 0 | Has critical: true
+
+━ DRY-RUN — JSON que seria publicado ━
+{ ... }
+
+━ Concluído ━
+Agent: agent_abc | Run: run_xyz
+=== Resumo do Cursor Reviewer ===
+Reviews novos: 2 | Threads resolvidas: 0
+Severidades: critical=1, warning=1, suggestion=0
+Review: COM ISSUES PENDENTES
+Pipeline: SUCESSO (exit 0)
+```
+
+---
+
+## Parâmetros CLI
+
+| Flag | Descrição |
+|------|-----------|
+| `--dry-run` | Sem publicação ADO; exit 0 |
+| `--verbose` / `--quiet` | Controle de logs |
+| `--source-branch REF` | Branch source |
+| `--target-branch REF` | Branch target (default: `refs/heads/master`) |
+| `--org`, `--project`, `--repo`, `--pr-id` | Contexto ADO |
+| `--bot-tag TAG` | Tag do bot |
+| `--model ID` | Modelo Cursor |
+| `--repo-root PATH` | Raiz do repositório alvo |
+| `--help` / `-h` | Ajuda |
+
+---
+
+## Variáveis de ambiente (pipeline)
+
+| Variável | Origem |
+|----------|--------|
+| `CURSOR_REVIEWER_MODEL` | Variable group / pipeline var |
+| `CURSOR_REVIEWER_TARGET_BRANCH` | Variable group / pipeline var |
+| `SYSTEM_PULLREQUEST_SOURCEBRANCH` | Pipeline ADO |
+| `SYSTEM_PULLREQUEST_TARGETBRANCH` | Pipeline ADO |
+| `SYSTEM_PULLREQUEST_PULLREQUESTID` | Pipeline ADO |
+| `SYSTEM_COLLECTIONURI` | Pipeline ADO |
+| `SYSTEM_TEAMPROJECT` | Pipeline ADO |
+| `BUILD_REPOSITORY_NAME` | Pipeline ADO |
+| `SYSTEM_ACCESSTOKEN` | Pipeline ADO |
+
+---
+
+## Troubleshooting
+
+### `CURSOR_API_KEY é obrigatório`
+
+1. Confirme que `.env` existe
+2. Verifique se a chave está preenchida
+3. Use `npm run review` (carrega `--env-file=.env`)
+
+### `Contexto ADO incompleto`
+
+Fora da pipeline, use `--dry-run` ou passe `--org`, `--project`, `--repo`, `--pr-id`.
+
+### `Token ADO ausente`
+
+Pipeline: habilite **Allow scripts to access the OAuth token**. Local: `AZURE_DEVOPS_EXT_PAT`.
+
+### Nenhum arquivo elegível
+
+Diff sem `.cs`, `.ts` ou `.html` revisáveis, ou todos excluídos.
+
+### `Git error: fatal: ...`
+
+`git fetch origin master` (ou a target configurada).
+
+### JSON inválido na resposta
+
+Rode com `--verbose` e inspecione a saída bruta do agente.
+
+---
+
+## Referências
+
+| Recurso | Caminho |
+|---------|---------|
+| Fluxo de análise e decisão | [`docs/flow-analysis.md`](docs/flow-analysis.md) |
+| FAQ | [`docs/faq.md`](docs/faq.md) |
+| Score e severidade | [`docs/score_calc.md`](docs/score_calc.md) |
+| Modelo de execução | [`docs/two-phase-execution-model.md`](docs/two-phase-execution-model.md) |
+| Instruções de harness | `skills/CODE_REVIEW.md` |
+| System Prompt / contrato JSON | `skills/SYSTEM_PROMPT.md` |
+| Pipeline YAML | `azure-pipelines-cursor-code-review.yml` |
+| Cursor SDK Docs | https://cursor.com/docs/sdk/typescript |

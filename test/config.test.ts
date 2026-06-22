@@ -148,6 +148,52 @@ describe('loadConfig', () => {
     );
   });
 
+  it('usa maxRounds default 5 e respeita override por env', () => {
+    withEnv(
+      {
+        CURSOR_API_KEY: 'cursor_test',
+        CURSOR_REVIEWER_MAX_ROUNDS: undefined,
+      },
+      () => {
+        const config = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature']);
+        assert.equal(config.maxRounds, 5);
+      },
+    );
+
+    withEnv(
+      {
+        CURSOR_API_KEY: 'cursor_test',
+        CURSOR_REVIEWER_MAX_ROUNDS: '7',
+      },
+      () => {
+        const config = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature']);
+        assert.equal(config.maxRounds, 7);
+      },
+    );
+
+    withEnv(
+      {
+        CURSOR_API_KEY: 'cursor_test',
+        CURSOR_REVIEWER_MAX_ROUNDS: '0',
+      },
+      () => {
+        const config = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature']);
+        assert.equal(config.maxRounds, 0);
+      },
+    );
+
+    withEnv(
+      {
+        CURSOR_API_KEY: 'cursor_test',
+        CURSOR_REVIEWER_MAX_ROUNDS: '$(CURSOR_REVIEWER_MAX_ROUNDS)',
+      },
+      () => {
+        const config = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature']);
+        assert.equal(config.maxRounds, 5);
+      },
+    );
+  });
+
   it('falha na inicialização com modelo inválido', () => {
     withEnv(
       {
