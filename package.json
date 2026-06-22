@@ -1,0 +1,31 @@
+{
+  "name": "cursor-reviewer",
+  "version": "0.1.0",
+  "description": "Code reviewer agêntico portável (review-only) para pipeline Azure DevOps usando @cursor/sdk",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "review": "tsx --env-file-if-exists=.env src/index.ts",
+    "review:local": "tsx --env-file-if-exists=.env src/index.ts --dry-run",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run typecheck && tsx --test test/**/*.test.ts",
+    "test:seed": "tsx src/seed/run-seed-test.ts",
+    "seed:install": "tsx src/seed/install-fixtures.ts",
+    "seed:uninstall": "tsx src/seed/uninstall-fixtures.ts",
+    "seed:verify-clean": "tsx src/seed/verify-clean.ts"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "dependencies": {
+    "@cursor/sdk": "^1.0.19"
+  },
+  "devDependencies": {
+    "@connectrpc/connect": "^2.1.2",
+    "@connectrpc/connect-node": "^2.1.2",
+    "@types/node": "^22.15.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}
