@@ -15,6 +15,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "build:release": "bash scripts/build-release.sh",
     "start": "node dist/index.js",
     "review": "tsx --env-file-if-exists=.env src/index.ts",
     "review:local": "tsx --env-file-if-exists=.env src/index.ts --dry-run",

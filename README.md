@@ -345,6 +345,40 @@ PR → azure-pipelines-cursor-code-review.yml
 
 ---
 
+## Execução Remota e Distribuição (Branch Release)
+
+Para evitar clonar todo o código-fonte, dependências de desenvolvimento (como TypeScript, compilers) e ter que compilar o projeto em pipelines de outros repositórios, o `cursor-reviewer` suporta uma estratégia de distribuição baseada na branch `release`.
+
+### 1. Como funciona a branch `release`
+A branch `release` contém apenas o código JavaScript transpilado pronto para execução (`dist/`), prompts (`skills/`), e os arquivos de manifesto do NPM (`package.json`, `package-lock.json`).
+
+Para gerar e publicar essa branch automaticamente a partir do código na `main`, use:
+```bash
+npm run build:release
+```
+Esse script compila o projeto, cria um repositório git temporário contendo apenas os artefatos de runtime e faz um force push para a branch `release` do repositório remoto configurado.
+
+### 2. Executando o Reviewer remotamente a partir de outro projeto
+Projetos externos (como o `FlorestalERP`) podem baixar e executar a última versão de release do `cursor-reviewer` sem precisar incluir seus arquivos no repositório local.
+
+O script `run.sh` na raiz deste repositório automatiza esse fluxo. Ele clona a branch `release` em um diretório temporário local, instala as dependências mínimas de runtime (`npm ci --omit=dev`), e executa o agente no contexto do projeto chamador.
+
+#### Exemplo em Pipeline (cURL + Bash)
+Basta baixar o script `run.sh` de release e executá-lo passando as opções da CLI (a variável `CURSOR_REVIEWER_REPO_URL` pode ser usada caso o repositório seja privado ou hospedado no Azure DevOps Git):
+
+```bash
+# Caso o repositório seja público no GitHub:
+curl -fsSL https://raw.githubusercontent.com/jpolvora/cursor-reviewer/main/run.sh | bash -s -- --dry-run
+
+# Customizando a URL do repositório (ex: repositório privado no Azure DevOps) e passando argumentos:
+export CURSOR_REVIEWER_REPO_URL="https://dev.azure.com/7focus/FlorestalERP/_git/cursor-reviewer"
+curl -fsSL -H "Authorization: Bearer $SYSTEM_ACCESSTOKEN" "https://dev.azure.com/7focus/FlorestalERP/_apis/git/repositories/cursor-reviewer/items?path=/run.sh&api-version=6.0" | bash -s -- --dry-run
+```
+
+O script repassará todos os argumentos (como `--dry-run`, `--org`, `--pr-id`, etc.) diretamente para o executável do `cursor-reviewer`.
+
+---
+
 ## Como rodar localmente
 
 ### Pré-requisitos
@@ -358,6 +392,17 @@ PR → azure-pipelines-cursor-code-review.yml
 ```bash
 npm run review -- --dry-run
 ```
+
+### Testando com o Projeto Demo (crud-simples)
+
+O repositório inclui uma pasta de demonstração em `demo-project/crud-simples` contendo arquivos C# e TypeScript com erros de segurança e qualidade propositais (como SQL Injection, XSS, Memory Leaks e descarte inadequado de recursos).
+
+Para rodar a análise local contra esse projeto demo e validar que o bot detecta os problemas corretamente, execute:
+```bash
+npm run review -- --dry-run --include-uncommitted --repo-root demo-project/crud-simples
+```
+
+A flag `--include-uncommitted` é necessária para instruir o analisador Git a incluir arquivos que não estão commitados no branch (ou arquivos novos no working tree), e `--repo-root` aponta o escopo da análise especificamente para a pasta do projeto demo.
 
 ### Opções CLI avançadas
 
