@@ -109,18 +109,38 @@ export function resolveProject(
   repoRootOverride?: string,
 ): ResolvedProject {
   const runnerRoot = resolveRunnerRoot(fromModuleUrl);
-  const defaultRepoRoot = resolve(runnerRoot, '../../');
-  let repoRoot = resolve(repoRootOverride ?? defaultRepoRoot);
-
-  if (!existsSync(resolve(repoRoot, '.git'))) {
-    if (!repoRootOverride && existsSync(resolve(runnerRoot, '.git'))) {
-      repoRoot = runnerRoot;
-    } else {
-      failFast(
-        `Repositório git não encontrado em ${repoRoot}.\n` +
-          'Execute o reviewer apontando para um repositório git válido.',
-      );
+  let repoRoot: string;
+  if (repoRootOverride) {
+    repoRoot = resolve(repoRootOverride);
+  } else {
+    // Tenta encontrar a pasta .git subindo a partir do runnerRoot
+    let current = runnerRoot;
+    let foundGit = false;
+    while (true) {
+      if (existsSync(resolve(current, '.git'))) {
+        foundGit = true;
+        break;
+      }
+      const parent = dirname(current);
+      if (parent === current) {
+        break;
+      }
+      current = parent;
     }
+
+    if (foundGit) {
+      repoRoot = current;
+    } else {
+      // Fallback legado se não encontrar .git na subida
+      repoRoot = resolve(runnerRoot, '../../');
+    }
+  }
+
+  if (!existsSync(resolve(repoRoot, '.git')) && !repoRootOverride) {
+    failFast(
+      `Repositório git não encontrado em ${repoRoot}.\n` +
+        'Execute o reviewer apontando para um repositório git válido.',
+    );
   }
 
   const codeReviewSkillPath = resolve(runnerRoot, 'skills/CODE_REVIEW.md');

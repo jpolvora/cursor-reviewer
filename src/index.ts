@@ -434,11 +434,27 @@ main()
     console.error('\n❌ [cursor-reviewer] ERRO FATAL');
     if (error instanceof ProjectValidationError || error instanceof Error) {
       console.error(error.message);
-      if (error.stack && process.env.CURSOR_REVIEWER_VERBOSE === 'true') {
+      if (error.cause) {
+        console.error(`\nCausa:\n`, error.cause);
+      }
+      try {
+        const extraProps = JSON.stringify(error, Object.getOwnPropertyNames(error).filter(k => k !== 'message' && k !== 'stack'), 2);
+        if (extraProps !== '{}') {
+          console.error(`\nPropriedades do Erro:\n${extraProps}`);
+        }
+      } catch {
+        // Ignora falha de serialização
+      }
+      if (error.stack) {
         console.error(`\nStack Trace:\n${error.stack}`);
       }
     } else {
       console.error('Erro desconhecido:', error);
+      try {
+        console.error(JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+      } catch {
+        // ignora erro de json
+      }
     }
     const exitCode = typeof process.exitCode === 'number' && process.exitCode !== 0 ? process.exitCode : 1;
     process.exit(exitCode);
