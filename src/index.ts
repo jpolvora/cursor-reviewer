@@ -1,23 +1,15 @@
-import { getPullRequestContext } from './ado/pull-request.js';
-import { AdoClient } from './ado/client.js';
 import { evaluateGate, formatGateSummary } from './ado/gate.js';
 import {
   getCodeReviewPostingPlan,
   getNewReviewsFromPlan,
   parseCodeReviewResponse,
-  resolvePullRequestReviewThreads,
-  setPullRequestComments,
-  setPullRequestReviewSummary,
   simulateThreadResolution,
 } from './ado/post-comments.js';
-import { getPullRequestReviewContext, filterGatePendingThreads } from './ado/review-context.js';
+import { filterGatePendingThreads } from './ado/review-context.js';
 import {
   decideRoundEscalation,
-  parseRoundStateFromThreads,
-  persistRoundState,
   splitReviewsForEscalation,
 } from './ado/round-state.js';
-import { getPullRequestWorkItemContext } from './ado/work-items.js';
 import type { CodeReviewItem, PendingPrThread, ReviewContextResult } from './ado/types.js';
 import { runCodeReviewAgent } from './agent/runner.js';
 import { EMPTY_TOKEN_USAGE } from './agent/token-usage.js';
@@ -31,10 +23,10 @@ import {
   type DiffFileSummary,
 } from './git/diff.js';
 import { createLogger, type Logger } from './logger.js';
-import { emitPipelineReviewOutput } from './ado/pipeline-logging.js';
 import { parseAgentReviewOutput } from './parser/review-response.js';
 import { buildRulesMap } from './project/rules-map.js';
 import { formatCommentForPosting } from './ado/format-thread.js';
+import { getProvider } from './provider/index.js';
 
 function logDiffFileSummaries(
   logger: Logger,
@@ -146,17 +138,21 @@ async function main(): Promise<void> {
     logger.info(`Rules pré-mapeadas: ${rulesMap.uniqueRules.length}`);
   }
 
-  const hasAdoContext =
-    Boolean(config.organization && config.project && config.repositoryName && config.pullRequestId) &&
-    Boolean(config.adoAccessToken);
+  const provider = getProvider(config);
+  await provider.initialize(config, logger);
 
-  if (diffStats.fileCount === 0 && !hasAdoContext) {
-    logger.warn('Nenhum arquivo elegível e sem contexto ADO. Encerrando.');
+  const isAdo = config.provider === 'azuredevops';
+  const hasContext = isAdo
+    ? Boolean(config.organization && config.project && config.repositoryName && config.pullRequestId > 0)
+    : Boolean(config.organization && config.repositoryName && config.pullRequestId > 0);
+
+  if (diffStats.fileCount === 0 && !hasContext) {
+    logger.warn('Nenhum arquivo elegível e sem contexto configurado. Encerrando.');
     return;
   }
 
   if (diffStats.fileCount === 0) {
-    logger.warn('Nenhum arquivo elegível no diff — pulando agente; avaliando gate ADO.');
+    logger.warn('Nenhum arquivo elegível no diff — pulando agente; avaliando gate.');
   }
 
   if (diffStats.fileCount > 20) {
@@ -172,22 +168,14 @@ async function main(): Promise<void> {
   };
   let workItemContext = '';
   let prDescriptionContext = '';
-  let ado: AdoClient | null = null;
 
-  if (hasAdoContext) {
-    ado = new AdoClient(
-      config.organization,
-      config.project,
-      config.repositoryName,
-      config.adoAccessToken,
-    );
-
-    logger.section('Coletando contexto Azure DevOps');
+  if (hasContext) {
+    logger.section(`Coletando contexto ${isAdo ? 'Azure DevOps' : 'GitHub'}`);
 
     const [workItems, prContext, prDetails] = await Promise.all([
-      getPullRequestWorkItemContext(ado, config.pullRequestId, 10, (msg) => logger.info(msg)),
-      getPullRequestReviewContext(ado, config.pullRequestId, config.botTag, (msg) => logger.info(msg)),
-      getPullRequestContext(ado, config.pullRequestId, (msg) => logger.info(msg)),
+      provider.getPullRequestWorkItemContext(10, (msg) => logger.info(msg)),
+      provider.getPullRequestReviewContext(config.botTag, (msg) => logger.info(msg)),
+      provider.getPullRequestContext((msg) => logger.info(msg)),
     ]);
 
     workItemContext = workItems.contextForLlm;
@@ -196,7 +184,7 @@ async function main(): Promise<void> {
   }
 
   const agentStartTime = performance.now();
-  if (diffStats.fileCount > 0 && config.pullRequestId > 0 && !hasAdoContext) {
+  if (diffStats.fileCount > 0 && config.pullRequestId > 0 && !hasContext) {
     logger.info(`Iniciando revisão somente leitura da PR #${config.pullRequestId}.`);
   }
   const agentResult =
@@ -259,8 +247,8 @@ async function main(): Promise<void> {
   );
 
   // Frente C — orçamento de rodadas + escalonamento (garantia de convergência).
-  const priorRoundState = parseRoundStateFromThreads(reviewContext.allThreads, config.botTag);
-  const currentRound = hasAdoContext ? priorRoundState.round + 1 : 0;
+  const priorRoundState = provider.parseRoundStateFromThreads(reviewContext.allThreads, config.botTag);
+  const currentRound = hasContext ? priorRoundState.round + 1 : 0;
   const hasOpenIssues = wouldPostReviewsPre.length > 0 || gatePendingBeforePost.length > 0;
   const escalate = decideRoundEscalation({ currentRound, maxRounds: config.maxRounds, hasOpenIssues });
 
@@ -298,14 +286,14 @@ async function main(): Promise<void> {
     if (wouldPostReviews.length > 0) {
       logger.section('DRY-RUN — Preview das threads');
       for (const review of wouldPostReviews) {
-        const formatted = formatCommentForPosting(review, config.botTag);
+        const formatted = formatCommentForPosting(review, config.botTag, config.provider === 'github');
         logger.info(`\n┌─ ${review.fileName}:${review.lineNumber} [${review.severity}] score=${review.score ?? '?'}`);
         logger.info(`│ ${formatted.split('\n').join('\n│ ')}`);
         logger.info('└─');
       }
     }
 
-    if (hasAdoContext) {
+    if (hasContext) {
       const simulated = simulateThreadResolution(
         reviewContext.activeThreads,
         pendingThreads,
@@ -325,11 +313,9 @@ async function main(): Promise<void> {
         );
       }
     }
-  } else if (ado) {
+  } else if (hasContext) {
     logger.section('Resolvendo threads confirmadas pelo agente');
-    resolvedCount = await resolvePullRequestReviewThreads(
-      ado,
-      config.pullRequestId,
+    resolvedCount = await provider.resolvePullRequestReviewThreads(
       config.botTag,
       reviewContext.activeThreads,
       parsed.resolvedThreads,
@@ -338,9 +324,7 @@ async function main(): Promise<void> {
     logger.info(`Resolved ${resolvedCount} active thread(s).`);
 
     if (resolvedCount > 0) {
-      const afterResolve = await getPullRequestReviewContext(
-        ado,
-        config.pullRequestId,
+      const afterResolve = await provider.getPullRequestReviewContext(
         config.botTag,
         (msg) => logger.debug(msg),
       );
@@ -351,9 +335,7 @@ async function main(): Promise<void> {
     const postingPlan = getCodeReviewPostingPlan(effectiveParsed, gatePendingBeforePost.length > 0);
 
     logger.section('Publicando comentários na PR');
-    const postedThreads = await setPullRequestComments(
-      ado,
-      config.pullRequestId,
+    const postedThreads = await provider.setPullRequestComments(
       config.botTag,
       postingPlan.reviewsJson,
       reviewContext.existingKeys,
@@ -369,9 +351,7 @@ async function main(): Promise<void> {
 
     if (postingPlan.postSummary && !gateBeforeSummary.shouldFail) {
       logger.section('Publicando resumo final');
-      await setPullRequestReviewSummary(
-        ado,
-        config.pullRequestId,
+      await provider.setPullRequestReviewSummary(
         config.botTag,
         postingPlan.reviewSummary,
         reviewContext.allThreads,
@@ -383,9 +363,7 @@ async function main(): Promise<void> {
       logger.info('Skipping final review summary (empty summary or critical issues remain).');
     }
 
-    const refreshedContext = await getPullRequestReviewContext(
-      ado,
-      config.pullRequestId,
+    const refreshedContext = await provider.getPullRequestReviewContext(
       config.botTag,
       (msg) => logger.debug(msg),
     );
@@ -395,9 +373,7 @@ async function main(): Promise<void> {
     // alguma issue nesta rodada — garante a convergência do loop fix→review.
     if (currentRound > 0 && (hasOpenIssues || escalate)) {
       logger.section('Atualizando estado de rodada');
-      await persistRoundState(
-        ado,
-        config.pullRequestId,
+      await provider.persistRoundState(
         config.botTag,
         { currentRound, maxRounds: config.maxRounds, escalate, suppressedCount },
         priorRoundState,
@@ -421,9 +397,8 @@ async function main(): Promise<void> {
     formatGateSummary(gate, agentResult.agentId, agentResult.runId, config.dryRun, agentResult.tokenUsage),
   );
 
-  // Visibilidade na build do Azure DevOps (aba Issues + resumo anexado).
-  // No-op fora da pipeline; não altera o exit code (issues não bloqueiam).
-  emitPipelineReviewOutput(gate, postedReviews, config.dryRun, agentResult.tokenUsage);
+  // Visibilidade na build.
+  provider.emitPipelineReviewOutput(gate, postedReviews, config.dryRun, agentResult.tokenUsage);
 }
 
 main()

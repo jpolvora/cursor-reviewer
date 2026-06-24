@@ -18,7 +18,7 @@ export interface CodeReviewItem {
 }
 
 export interface ResolvedThreadItem {
-  threadId?: number;
+  threadId?: string | number;
   fileName?: string;
   lineNumber?: number;
   note?: string;
@@ -36,17 +36,17 @@ export interface ParsedCodeReviewResponse extends CodeReviewResponse {
 }
 
 export interface ActiveThreadInfo {
-  threadId: number;
+  threadId: string;
   filePath: string;
   lineNumber: number;
   status: string;
   summary: string;
-  botCommentId: number;
+  botCommentId: string | number;
   hasResolutionReply: boolean;
 }
 
 export interface PendingPrThread {
-  threadId: number;
+  threadId: string;
   status: string;
   filePath: string | null;
   lineNumber: number | null;
@@ -104,8 +104,8 @@ export interface PostingPlan {
 }
 
 export interface PostedReviewThread {
-  threadId: number;
-  botCommentId: number;
+  threadId: string;
+  botCommentId: string | number;
   review: CodeReviewItem;
 }
 

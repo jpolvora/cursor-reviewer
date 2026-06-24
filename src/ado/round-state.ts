@@ -9,9 +9,9 @@ export interface RoundStateLocation {
   /** Número de rodadas já registradas (0 se ainda não houver estado). */
   round: number;
   /** Thread geral que carrega o marcador (null se inexistente). */
-  threadId: number | null;
+  threadId: string | number | null;
   /** Comentário do bot dentro da thread (null se inexistente). */
-  commentId: number | null;
+  commentId: string | number | null;
 }
 
 export interface RoundDecisionInput {

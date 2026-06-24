@@ -65,7 +65,7 @@ function extractPendingThreads(threads: AdoThreadsResponse, botTag: string): Pen
     const summary = getReviewSummaryFromComment(rawContent, botTag);
 
     pending.push({
-      threadId: thread.id,
+      threadId: String(thread.id),
       status,
       filePath: thread.threadContext?.filePath ?? null,
       lineNumber: thread.threadContext?.rightFileStart?.line ?? null,
@@ -144,7 +144,7 @@ export async function getPullRequestReviewContext(
         });
 
         activeThreads.push({
-          threadId: thread.id,
+          threadId: String(thread.id),
           filePath: normalizedPath,
           lineNumber,
           status: threadStatus,

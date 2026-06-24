@@ -19,7 +19,8 @@ function getSeverityLabel(severity: string): string {
  * ação. Normalizamos a cerca para um bloco de código neutro, evitando sugerir
  * um comportamento inexistente.
  */
-function normalizeFixFences(text: string): string {
+function normalizeFixFences(text: string, isGithub = false): string {
+  if (isGithub) return text;
   return text.replace(/```suggestion\b/gi, '```');
 }
 
@@ -37,6 +38,7 @@ function removeSeverityPrefix(text: string): string {
 export function formatCommentForPosting(
   review: CodeReviewItem,
   botTag: string,
+  isGithub = false,
 ): string {
   let body = review.comment;
 
@@ -51,7 +53,7 @@ export function formatCommentForPosting(
 
   let fixBlock = '';
   if (review.suggestedFix) {
-    const trimmedFix = normalizeFixFences(review.suggestedFix.trim());
+    const trimmedFix = normalizeFixFences(review.suggestedFix.trim(), isGithub);
     if (trimmedFix.includes('```')) {
       fixBlock = `\n\n**Correção sugerida:**\n\n${trimmedFix}`;
     } else {

@@ -77,7 +77,7 @@ function isDuplicateReview(review: CodeReviewItem, existingKeys: Map<string, boo
 }
 
 function matchesResolvedItem(threadInfo: ActiveThreadInfo, item: ResolvedThreadItem): boolean {
-  if (item.threadId != null && item.threadId === threadInfo.threadId) {
+  if (item.threadId != null && String(item.threadId) === threadInfo.threadId) {
     return true;
   }
   if (item.fileName && item.lineNumber != null && item.lineNumber > 0) {
@@ -90,7 +90,7 @@ function matchesResolvedItem(threadInfo: ActiveThreadInfo, item: ResolvedThreadI
 function filterValidResolvedItems(resolvedItems: ResolvedThreadItem[]): ResolvedThreadItem[] {
   return resolvedItems.filter(
     (item) =>
-      (item.threadId != null && !Number.isNaN(item.threadId)) ||
+      item.threadId != null ||
       (Boolean(item.fileName) && item.lineNumber != null && item.lineNumber > 0),
   );
 }
@@ -103,9 +103,9 @@ function isActiveOrPendingStatus(status: string): boolean {
 function collectSimulatedResolvedThreadIds(
   activeThreads: ActiveThreadInfo[],
   resolvedItems: ResolvedThreadItem[],
-): Set<number> {
+): Set<string> {
   const llmResolved = filterValidResolvedItems(resolvedItems);
-  const resolvedThreadIds = new Set<number>();
+  const resolvedThreadIds = new Set<string>();
 
   for (const threadInfo of activeThreads) {
     if (threadInfo.hasResolutionReply && isActiveOrPendingStatus(threadInfo.status)) {
@@ -326,7 +326,7 @@ export async function setPullRequestComments(
 
       const botCommentId = response.comments?.[0]?.id ?? 0;
       posted.push({
-        threadId: response.id,
+        threadId: String(response.id),
         botCommentId,
         review,
       });

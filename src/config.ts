@@ -19,6 +19,8 @@ export interface ReviewerConfig {
   sourceBranch: string;
   targetBranch: string;
 
+  provider: 'azuredevops' | 'github';
+
   organization: string;
   project: string;
   repositoryName: string;
@@ -54,6 +56,8 @@ export interface CliArgs {
   includeUncommitted?: boolean;
   seedTest?: boolean;
   help?: boolean;
+  ado?: boolean;
+  gh?: boolean;
 }
 
 const DEFAULT_INCLUDE = ['**/*.cs', '**/*.ts', '**/*.html', '*.cs', '*.ts', '*.html'];
@@ -181,6 +185,12 @@ function parseArgs(argv: string[]): CliArgs {
       case '--seed-test':
         args.seedTest = true;
         break;
+      case '--ado':
+        args.ado = true;
+        break;
+      case '--gh':
+        args.gh = true;
+        break;
       default:
         break;
     }
@@ -220,7 +230,34 @@ export function resolvePullRequestIdSource(cli: CliArgs, pullRequestId: number):
   if (process.env.CURSOR_REVIEWER_PR_ID?.trim()) {
     return 'CURSOR_REVIEWER_PR_ID';
   }
+  if (process.env.GITHUB_REF?.includes('refs/pull/')) {
+    return 'GITHUB_REF';
+  }
   return 'desconhecida';
+}
+
+function resolveProvider(cli: CliArgs): 'azuredevops' | 'github' {
+  if (cli.ado) return 'azuredevops';
+  if (cli.gh) return 'github';
+
+  if (
+    process.env.GITHUB_ACTIONS === 'true' ||
+    process.env.GITHUB_TOKEN ||
+    process.env.GH_TOKEN ||
+    process.env.GITHUB_REPOSITORY
+  ) {
+    return 'github';
+  }
+
+  if (
+    process.env.TF_BUILD === 'true' ||
+    process.env.SYSTEM_COLLECTIONURI ||
+    process.env.CURSOR_REVIEWER_ADO_ORG
+  ) {
+    return 'azuredevops';
+  }
+
+  return 'azuredevops';
 }
 
 /** Normaliza ref git: `master` → `refs/heads/master`. */
@@ -289,24 +326,50 @@ export function loadConfig(argv: string[] = process.argv.slice(2)): ReviewerConf
     );
   }
 
-  const organization =
-    cli.organization ??
-    process.env.CURSOR_REVIEWER_ADO_ORG ??
-    extractOrgFromCollectionUri(process.env.SYSTEM_COLLECTIONURI ?? '');
+  const provider = resolveProvider(cli);
+  const isAdo = provider === 'azuredevops';
 
-  const adoProject = cli.project ?? process.env.SYSTEM_TEAMPROJECT ?? process.env.CURSOR_REVIEWER_ADO_PROJECT ?? '';
-  const repositoryName =
-    cli.repository ?? process.env.BUILD_REPOSITORY_NAME ?? process.env.CURSOR_REVIEWER_ADO_REPO ?? '';
+  const organization = isAdo
+    ? (cli.organization ??
+       process.env.CURSOR_REVIEWER_ADO_ORG ??
+       extractOrgFromCollectionUri(process.env.SYSTEM_COLLECTIONURI ?? ''))
+    : (cli.organization ??
+       process.env.GITHUB_REPOSITORY_OWNER ??
+       (process.env.GITHUB_REPOSITORY ? process.env.GITHUB_REPOSITORY.split('/')[0] : '') ??
+       '');
 
-  const rawPullRequestId =
-    cli.pullRequestId ??
-    Number(process.env.SYSTEM_PULLREQUEST_PULLREQUESTID ?? process.env.CURSOR_REVIEWER_PR_ID ?? 0);
+  const adoProject = isAdo
+    ? (cli.project ?? process.env.SYSTEM_TEAMPROJECT ?? process.env.CURSOR_REVIEWER_ADO_PROJECT ?? '')
+    : '';
+
+  const repositoryName = isAdo
+    ? (cli.repository ?? process.env.BUILD_REPOSITORY_NAME ?? process.env.CURSOR_REVIEWER_ADO_REPO ?? '')
+    : (cli.repository ??
+       (process.env.GITHUB_REPOSITORY ? process.env.GITHUB_REPOSITORY.split('/')[1] : '') ??
+       '');
+
+  let rawPullRequestId = cli.pullRequestId;
+  if (rawPullRequestId == null) {
+    if (isAdo) {
+      rawPullRequestId = Number(process.env.SYSTEM_PULLREQUEST_PULLREQUESTID ?? process.env.CURSOR_REVIEWER_PR_ID ?? 0);
+    } else {
+      rawPullRequestId = Number(process.env.CURSOR_REVIEWER_PR_ID ?? 0);
+      if (rawPullRequestId <= 0 && process.env.GITHUB_REF) {
+        const match = process.env.GITHUB_REF.match(/refs\/pull\/(\d+)\//);
+        if (match) {
+          rawPullRequestId = Number(match[1]);
+        }
+      }
+    }
+  }
+
   const pullRequestId =
     Number.isInteger(rawPullRequestId) && rawPullRequestId > 0 ? rawPullRequestId : 0;
   const pullRequestIdSource = resolvePullRequestIdSource(cli, pullRequestId);
 
-  const adoAccessToken =
-    process.env.SYSTEM_ACCESSTOKEN?.trim() ?? process.env.AZURE_DEVOPS_EXT_PAT?.trim() ?? '';
+  const adoAccessToken = isAdo
+    ? (process.env.SYSTEM_ACCESSTOKEN?.trim() ?? process.env.AZURE_DEVOPS_EXT_PAT?.trim() ?? '')
+    : (process.env.GITHUB_TOKEN?.trim() ?? process.env.GH_TOKEN?.trim() ?? process.env.SYSTEM_ACCESSTOKEN?.trim() ?? '');
 
   const dryRun = cli.dryRun ?? parseBool(process.env.CURSOR_REVIEWER_DRY_RUN, false);
   const seedTest = cli.seedTest ?? parseBool(process.env.CURSOR_REVIEWER_SEED_TEST, false);
@@ -314,17 +377,23 @@ export function loadConfig(argv: string[] = process.argv.slice(2)): ReviewerConf
     cli.includeUncommitted ??
     (parseBool(process.env.CURSOR_REVIEWER_INCLUDE_UNCOMMITTED, false) || seedTest);
 
-  const hasAdoContext = Boolean(organization && adoProject && repositoryName && pullRequestId > 0);
+  const hasContext = isAdo
+    ? Boolean(organization && adoProject && repositoryName && pullRequestId > 0)
+    : Boolean(organization && repositoryName && pullRequestId > 0);
 
-  if (!dryRun && !hasAdoContext) {
+  if (!dryRun && !hasContext) {
     throw new Error(
-      'Contexto ADO incompleto. Defina org/project/repo/pr-id ou use --dry-run para teste local sem publicar threads.',
+      isAdo
+        ? 'Contexto ADO incompleto. Defina org/project/repo/pr-id ou use --dry-run para teste local sem publicar threads.'
+        : 'Contexto GitHub incompleto. Defina org (owner)/repo/pr-id ou use --dry-run para teste local sem publicar threads.'
     );
   }
 
-  if (hasAdoContext && !adoAccessToken) {
+  if (hasContext && !adoAccessToken) {
     throw new Error(
-      'Token ADO ausente. Na pipeline use SYSTEM_ACCESSTOKEN; localmente use AZURE_DEVOPS_EXT_PAT. Para dry-run sem consultar threads da PR, omita org/project/repo/pr-id.',
+      isAdo
+        ? 'Token ADO ausente. Na pipeline use SYSTEM_ACCESSTOKEN; localmente use AZURE_DEVOPS_EXT_PAT. Para dry-run sem consultar threads da PR, omita org/project/repo/pr-id.'
+        : 'Token GitHub ausente. Use GITHUB_TOKEN ou GH_TOKEN para permitir o acesso à API do GitHub.'
     );
   }
 
@@ -341,6 +410,7 @@ export function loadConfig(argv: string[] = process.argv.slice(2)): ReviewerConf
     seedTest,
     sourceBranch,
     targetBranch,
+    provider,
     organization,
     project: adoProject,
     repositoryName,
@@ -372,10 +442,11 @@ Opções:
   --verbose / --quiet    Controle de logs
   --source-branch REF    Override local da branch da PR (pipeline usa SYSTEM_PULLREQUEST_SOURCEBRANCH)
   --target-branch REF    Branch de comparação do diff (default: refs/heads/master)
-  --org, --project, --repo, --pr-id   Contexto Azure DevOps
+  --org, --project, --repo, --pr-id   Contexto Azure DevOps/GitHub
   --bot-tag TAG          Tag do bot
   --model ID             Modelo Cursor (default canônico: composer-2.5)
   --repo-root PATH       Raiz do repositório (default: detectado via scripts/cursor-reviewer)
+  --ado / --gh           Define a estratégia de execução/plataforma (Azure DevOps ou GitHub)
 
 Pré-requisitos do projeto alvo (obrigatórios — o script encerra se ausentes):
   skills/CODE_REVIEW.md

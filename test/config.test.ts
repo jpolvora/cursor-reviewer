@@ -208,4 +208,59 @@ describe('loadConfig', () => {
       },
     );
   });
+
+  it('detecta provider com flags --gh e --ado', () => {
+    withEnv(
+      {
+        CURSOR_API_KEY: 'cursor_test',
+      },
+      () => {
+        const configGh = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature', '--gh']);
+        assert.equal(configGh.provider, 'github');
+
+        const configAdo = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature', '--ado']);
+        assert.equal(configAdo.provider, 'azuredevops');
+      },
+    );
+  });
+
+  it('auto-detecta provider github baseado em envs', () => {
+    withEnv(
+      {
+        CURSOR_API_KEY: 'cursor_test',
+        GITHUB_ACTIONS: 'true',
+      },
+      () => {
+        const config = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature']);
+        assert.equal(config.provider, 'github');
+      },
+    );
+  });
+
+  it('auto-detecta provider azuredevops baseado em envs', () => {
+    withEnv(
+      {
+        CURSOR_API_KEY: 'cursor_test',
+        TF_BUILD: 'true',
+      },
+      () => {
+        const config = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature']);
+        assert.equal(config.provider, 'azuredevops');
+      },
+    );
+  });
+
+  it('falha para github com contexto incompleto e sem dry-run', () => {
+    withEnv(
+      {
+        CURSOR_API_KEY: 'cursor_test',
+      },
+      () => {
+        assert.throws(
+          () => loadConfig(['--source-branch', 'refs/heads/feature', '--gh']),
+          /Contexto GitHub incompleto/,
+        );
+      },
+    );
+  });
 });
