@@ -381,14 +381,6 @@ export function loadConfig(argv: string[] = process.argv.slice(2)): ReviewerConf
     ? Boolean(organization && adoProject && repositoryName && pullRequestId > 0)
     : Boolean(organization && repositoryName && pullRequestId > 0);
 
-  if (!dryRun && !hasContext) {
-    throw new Error(
-      isAdo
-        ? 'Contexto ADO incompleto. Defina org/project/repo/pr-id ou use --dry-run para teste local sem publicar threads.'
-        : 'Contexto GitHub incompleto. Defina org (owner)/repo/pr-id ou use --dry-run para teste local sem publicar threads.'
-    );
-  }
-
   if (hasContext && !adoAccessToken) {
     throw new Error(
       isAdo

@@ -277,14 +277,16 @@ async function main(): Promise<void> {
       )
     : wouldPostReviewsPre;
 
-  if (config.dryRun) {
-    logger.section('DRY-RUN — JSON que seria publicado');
+  const isDryRunOrNoContext = config.dryRun || !hasContext;
+
+  if (isDryRunOrNoContext) {
+    logger.section(config.dryRun ? 'DRY-RUN — JSON que seria publicado' : 'LOG-ONLY — JSON que seria publicado');
     console.log(JSON.stringify(rawResponse, null, 2));
     postedReviews = wouldPostReviews;
 
     // F3: Dry-run preview formatado
     if (wouldPostReviews.length > 0) {
-      logger.section('DRY-RUN — Preview das threads');
+      logger.section(config.dryRun ? 'DRY-RUN — Preview das threads' : 'LOG-ONLY — Preview das threads');
       for (const review of wouldPostReviews) {
         const formatted = formatCommentForPosting(review, config.botTag, config.provider === 'github');
         logger.info(`\n┌─ ${review.fileName}:${review.lineNumber} [${review.severity}] score=${review.score ?? '?'}`);
@@ -394,11 +396,11 @@ async function main(): Promise<void> {
   logger.info(`Agent: ${agentResult.agentId} | Run: ${agentResult.runId}`);
   logger.info(`Tempo total: ${formatElapsedMs(totalElapsed)}`);
   console.log(
-    formatGateSummary(gate, agentResult.agentId, agentResult.runId, config.dryRun, agentResult.tokenUsage),
+    formatGateSummary(gate, agentResult.agentId, agentResult.runId, isDryRunOrNoContext, agentResult.tokenUsage),
   );
 
   // Visibilidade na build.
-  provider.emitPipelineReviewOutput(gate, postedReviews, config.dryRun, agentResult.tokenUsage);
+  provider.emitPipelineReviewOutput(gate, postedReviews, isDryRunOrNoContext, agentResult.tokenUsage);
 }
 
 main()

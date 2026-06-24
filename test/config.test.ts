@@ -250,16 +250,14 @@ describe('loadConfig', () => {
     );
   });
 
-  it('falha para github com contexto incompleto e sem dry-run', () => {
+  it('sucedes para github com contexto incompleto e sem dry-run', () => {
     withEnv(
       {
         CURSOR_API_KEY: 'cursor_test',
       },
       () => {
-        assert.throws(
-          () => loadConfig(['--source-branch', 'refs/heads/feature', '--gh']),
-          /Contexto GitHub incompleto/,
-        );
+        const config = loadConfig(['--source-branch', 'refs/heads/feature', '--gh']);
+        assert.equal(config.provider, 'github');
       },
     );
   });
