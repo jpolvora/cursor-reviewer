@@ -1,6 +1,6 @@
 {
   "name": "cursor-reviewer",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Code reviewer agêntico portável (review-only) para pipeline Azure DevOps usando @cursor/sdk",
   "license": "MIT",
   "author": "Jone Polvora",
