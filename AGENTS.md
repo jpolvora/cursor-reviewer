@@ -68,3 +68,23 @@ Instala fixtures, roda reviewer com `--dry-run --seed-test`, valida detecção d
 - **Mudanças Cirúrgicas:** Mantenha os diffs reduzidos e diretos.
 - **Evite Self-Review:** Não desative a exclusão automática do runner, exceto ao desenvolver o próprio runner com `CURSOR_REVIEWER_REVIEW_SELF=true`.
 - **Sincronize docs:** Ao alterar `review-validation.ts`, `post-comments.ts`, `git/diff.ts` ou prompts, atualize `README.md`, `AGENTS.md` e `docs/flow-analysis.md` em conjunto.
+
+---
+
+## Execução Remota (cURL + Bash)
+
+Para rodar o reviewer remotamente em outros repositórios sem a necessidade de clonar o projeto completo:
+
+### Caso o repositório seja público no GitHub
+```bash
+curl -fsSL https://raw.githubusercontent.com/jpolvora/cursor-reviewer/main/run.sh | bash -s -- [argumentos]
+```
+
+### Caso o repositório seja privado no Azure DevOps
+```bash
+export CURSOR_REVIEWER_REPO_URL="https://dev.azure.com/7focus/FlorestalERP/_git/cursor-reviewer"
+curl -fsSL -H "Authorization: Bearer $SYSTEM_ACCESSTOKEN" \
+  "https://dev.azure.com/7focus/FlorestalERP/_apis/git/repositories/cursor-reviewer/items?path=/run.sh&api-version=6.0" \
+  | bash -s -- [argumentos]
+```
+

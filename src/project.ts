@@ -33,10 +33,11 @@ export function resolveRunnerRoot(fromModuleUrl: string): string {
   let current = dirname(fileURLToPath(fromModuleUrl));
 
   while (true) {
-    const marker = resolve(current, 'src/index.ts');
+    const markerSource = resolve(current, 'src/index.ts');
+    const markerDist = resolve(current, 'dist/index.js');
     const pkgPath = resolve(current, 'package.json');
 
-    if (existsSync(marker) && existsSync(pkgPath)) {
+    if ((existsSync(markerSource) || existsSync(markerDist)) && existsSync(pkgPath)) {
       try {
         const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as { name?: string };
         if (pkg.name?.includes('cursor-reviewer')) {
