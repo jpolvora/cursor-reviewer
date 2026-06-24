@@ -359,7 +359,7 @@ npm run build:release
 Esse script compila o projeto, cria um repositório git temporário contendo apenas os artefatos de runtime e faz um force push para a branch `release` do repositório remoto configurado.
 
 ### 2. Executando o Reviewer remotamente a partir de outro projeto
-Projetos externos (como o `FlorestalERP`) podem baixar e executar a última versão de release do `cursor-reviewer` sem precisar incluir seus arquivos no repositório local.
+Projetos externos podem baixar e executar a última versão de release do `cursor-reviewer` sem precisar incluir seus arquivos no repositório local.
 
 O script `run.sh` na raiz deste repositório automatiza esse fluxo. Ele clona a branch `release` em um diretório temporário local, instala as dependências mínimas de runtime (`npm ci --omit=dev`), e executa o agente no contexto do projeto chamador.
 
@@ -371,8 +371,8 @@ Basta baixar o script `run.sh` de release e executá-lo passando as opções da 
 curl -fsSL https://raw.githubusercontent.com/jpolvora/cursor-reviewer/main/run.sh | bash -s -- --dry-run
 
 # Customizando a URL do repositório (ex: repositório privado no Azure DevOps) e passando argumentos:
-export CURSOR_REVIEWER_REPO_URL="https://dev.azure.com/7focus/FlorestalERP/_git/cursor-reviewer"
-curl -fsSL -H "Authorization: Bearer $SYSTEM_ACCESSTOKEN" "https://dev.azure.com/7focus/FlorestalERP/_apis/git/repositories/cursor-reviewer/items?path=/run.sh&api-version=6.0" | bash -s -- --dry-run
+export CURSOR_REVIEWER_REPO_URL="https://dev.azure.com/sua-organizacao/seu-projeto/_git/cursor-reviewer"
+curl -fsSL -H "Authorization: Bearer $SYSTEM_ACCESSTOKEN" "https://dev.azure.com/sua-organizacao/seu-projeto/_apis/git/repositories/cursor-reviewer/items?path=/run.sh&api-version=6.0" | bash -s -- --dry-run
 ```
 
 O script repassará todos os argumentos (como `--dry-run`, `--org`, `--pr-id`, etc.) diretamente para o executável do `cursor-reviewer`.

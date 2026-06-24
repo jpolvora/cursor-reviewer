@@ -391,6 +391,27 @@ Rode com `--verbose` e inspecione a saída bruta do agente.
 
 ---
 
+## Arquitetura Desacoplada e Suporte a Novas Plataformas
+
+O `cursor-reviewer` é estruturado de forma a ser totalmente independente de plataformas e repositórios específicos. O core do agente se comunica com os ambientes externos exclusivamente através de uma abstração de provedor de plataforma.
+
+### Provedores de Plataforma (`PlatformProvider`)
+
+Toda a interação de leitura do contexto do repositório (Pull Request, commits, branches, threads de comentários e work items) e publicação de resultados (comentários na PR, resumo de review, logs de pipeline) é definida pelo contrato de interface em `src/provider/types.ts` (`PlatformProvider`).
+
+Atualmente, existem dois adaptadores concretos implementados:
+- **Azure DevOps (`AdoProvider`):** Lida com a integração com Azure DevOps Services e Azure Pipelines (ativado via `--ado` ou autodetecção de ambiente).
+- **GitHub (`GithubProvider`):** Lida com a integração com GitHub e GitHub Actions (ativado via `--gh` ou autodetecção de ambiente).
+
+### Como Adicionar Novas Plataformas (ex: GitLab, Bitbucket)
+
+Para suportar novos ambientes de CI/CD e provedores Git:
+1. Adicione a nova plataforma à união do tipo `provider` em `ReviewerConfig` (`src/config.ts`) e o mapeamento CLI (ex: `--gl` para GitLab).
+2. Crie uma classe que implemente a interface `PlatformProvider` (por exemplo, `src/provider/gitlab.ts`).
+3. Registre a nova classe no seletor do factory `getProvider` em `src/provider/index.ts`.
+
+---
+
 ## Referências
 
 | Recurso | Caminho |

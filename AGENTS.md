@@ -82,9 +82,9 @@ curl -fsSL https://raw.githubusercontent.com/jpolvora/cursor-reviewer/main/run.s
 
 ### Caso o repositório seja privado no Azure DevOps
 ```bash
-export CURSOR_REVIEWER_REPO_URL="https://dev.azure.com/7focus/FlorestalERP/_git/cursor-reviewer"
+export CURSOR_REVIEWER_REPO_URL="https://dev.azure.com/sua-organizacao/seu-projeto/_git/cursor-reviewer"
 curl -fsSL -H "Authorization: Bearer $SYSTEM_ACCESSTOKEN" \
-  "https://dev.azure.com/7focus/FlorestalERP/_apis/git/repositories/cursor-reviewer/items?path=/run.sh&api-version=6.0" \
+  "https://dev.azure.com/sua-organizacao/seu-projeto/_apis/git/repositories/cursor-reviewer/items?path=/run.sh&api-version=6.0" \
   | bash -s -- [argumentos]
 ```
 
