@@ -26,7 +26,7 @@ if [ -z "$(git config user.name || true)" ]; then
 fi
 
 npm version patch --no-git-tag-version
-NEW_VERSION=$(node -e "console.log(require('./package.json').version)")
+NEW_VERSION=$(grep '"version":' package.json | head -n 1 | cut -d '"' -f 4)
 echo "Nova versão: $NEW_VERSION"
 
 CURRENT_BRANCH=$(git branch --show-current)
