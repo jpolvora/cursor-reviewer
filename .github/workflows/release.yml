@@ -5,9 +5,14 @@ on:
     branches:
       - main
       - develop
+  pull_request:
+    branches:
+      - main
+      - develop
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   build-and-deploy:
@@ -30,10 +35,19 @@ jobs:
       - name: Run Tests
         run: npm test
 
+      - name: Validate Self-Review (Dry-Run)
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npx tsx src/index.ts --dry-run --gh --repo-root demo-project/crud-simples --source-branch "${{ github.head_ref || github.ref }}"
+        continue-on-error: true
+
       - name: Build TypeScript
         run: npm run build
 
       - name: Deploy Compiled Code to Release Branch
+        if: github.event_name == 'push'
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
