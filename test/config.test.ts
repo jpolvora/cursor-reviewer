@@ -33,6 +33,10 @@ describe('loadConfig', () => {
         CURSOR_API_KEY: 'cursor_test',
         SYSTEM_ACCESSTOKEN: undefined,
         AZURE_DEVOPS_EXT_PAT: undefined,
+        GITHUB_ACTIONS: undefined,
+        GITHUB_TOKEN: undefined,
+        GH_TOKEN: undefined,
+        GITHUB_REPOSITORY: undefined,
       },
       () => {
         assert.throws(
@@ -94,6 +98,10 @@ describe('loadConfig', () => {
         CURSOR_API_KEY: 'cursor_test',
         SYSTEM_PULLREQUEST_PULLREQUESTID: '999',
         SYSTEM_ACCESSTOKEN: 'pat_test',
+        GITHUB_ACTIONS: undefined,
+        GITHUB_TOKEN: undefined,
+        GH_TOKEN: undefined,
+        GITHUB_REPOSITORY: undefined,
       },
       () => {
         const config = loadConfig([
@@ -120,6 +128,10 @@ describe('loadConfig', () => {
       {
         CURSOR_API_KEY: 'cursor_test',
         SYSTEM_PULLREQUEST_PULLREQUESTID: '456',
+        GITHUB_ACTIONS: undefined,
+        GITHUB_TOKEN: undefined,
+        GH_TOKEN: undefined,
+        GITHUB_REPOSITORY: undefined,
       },
       () => {
         const config = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature']);
@@ -242,6 +254,10 @@ describe('loadConfig', () => {
       {
         CURSOR_API_KEY: 'cursor_test',
         TF_BUILD: 'true',
+        GITHUB_ACTIONS: undefined,
+        GITHUB_TOKEN: undefined,
+        GH_TOKEN: undefined,
+        GITHUB_REPOSITORY: undefined,
       },
       () => {
         const config = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature']);
