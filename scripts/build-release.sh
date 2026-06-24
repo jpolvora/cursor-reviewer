@@ -19,6 +19,24 @@ if [ ! -f "package.json" ]; then
   exit 1
 fi
 
+echo "=== [1.5] Incrementando versão (patch) ==="
+if [ -z "$(git config user.name || true)" ]; then
+  git config user.name "Cursor Reviewer Release Bot"
+  git config user.email "bot@cursor-reviewer.local"
+fi
+
+npm version patch --no-git-tag-version
+NEW_VERSION=$(node -e "console.log(require('./package.json').version)")
+echo "Nova versão: $NEW_VERSION"
+
+CURRENT_BRANCH=$(git branch --show-current)
+if [ -n "$CURRENT_BRANCH" ]; then
+  echo "Salvando nova versão na branch $CURRENT_BRANCH..."
+  git add package.json package-lock.json
+  git commit -m "chore: bump version to $NEW_VERSION" || true
+  git push origin "$CURRENT_BRANCH" || true
+fi
+
 # Obter URL do remoto origin atual
 REMOTE_URL=$(git remote get-url origin 2>/dev/null || git config --get remote.origin.url || echo "")
 if [ -z "$REMOTE_URL" ]; then
@@ -64,7 +82,7 @@ git config user.name "Cursor Reviewer Release Bot"
 git config user.email "bot@cursor-reviewer.local"
 
 git add -A
-git commit -m "chore: release build $(date '+%Y-%m-%d %H:%M:%S')"
+git commit -m "chore: release build $NEW_VERSION ($(date '+%Y-%m-%d %H:%M:%S'))"
 
 echo "=== [5/5] Publicando na branch 'release' ==="
 git remote add origin "$REMOTE_URL"
