@@ -43,6 +43,18 @@ jobs:
           npx tsx src/index.ts --dry-run --gh --repo-root demo-project/crud-simples --source-branch "${{ github.head_ref || github.ref }}"
         continue-on-error: true
 
+      - name: Bump Version
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Bump version in package.json and package-lock.json
+          npm version patch -m "chore(release): bump version to %s [skip ci]"
+          
+          # Push commit and tag back to main branch
+          git push origin HEAD:main --follow-tags
+
       - name: Build TypeScript
         run: npm run build
 
@@ -73,7 +85,9 @@ jobs:
           cd .release-tmp
           git init -b release
           git add -A
-          git commit -m "chore: release build from GitHub Actions ($GITHUB_SHA)"
+          
+          NEW_VERSION=$(node -e "console.log(require('./package.json').version)")
+          git commit -m "chore: release build v$NEW_VERSION from GitHub Actions ($GITHUB_SHA)"
           
           echo "Publicando artefatos compilados para a branch release..."
           git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git release --force

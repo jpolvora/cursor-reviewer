@@ -36,6 +36,7 @@ export interface ReviewerConfig {
   skillPath: string;
   systemPromptPath: string;
   projectName: string;
+  version: string;
 
   /** Orçamento de rodadas fix→review antes de escalar para revisão humana (0 desabilita). */
   maxRounds: number;
@@ -414,6 +415,7 @@ export function loadConfig(argv: string[] = process.argv.slice(2)): ReviewerConf
     skillPath: resolvedProject.codeReviewSkillPath,
     systemPromptPath: resolvedProject.systemPromptPath,
     projectName: resolvedProject.projectName,
+    version: resolvedProject.version,
     maxRounds: parseNonNegativeInt(process.env.CURSOR_REVIEWER_MAX_ROUNDS, DEFAULT_MAX_ROUNDS),
   };
 }

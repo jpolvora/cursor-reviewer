@@ -14,6 +14,7 @@ export interface ResolvedProject {
   codeReviewSkillPath: string;
   systemPromptPath: string;
   layout: ProjectLayout;
+  version: string;
 }
 
 export class ProjectValidationError extends Error {
@@ -154,6 +155,17 @@ export function resolveProject(
     failFast(`System Prompt obrigatório ausente: ${systemPromptPath}`);
   }
 
+  const pkgPath = resolve(runnerRoot, 'package.json');
+  let version = 'unknown';
+  try {
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as { version?: string };
+    if (pkg.version) {
+      version = pkg.version;
+    }
+  } catch {
+    // ignore
+  }
+
   return {
     runnerRoot,
     repoRoot,
@@ -161,5 +173,6 @@ export function resolveProject(
     codeReviewSkillPath,
     systemPromptPath,
     layout: detectProjectLayout(repoRoot),
+    version,
   };
 }

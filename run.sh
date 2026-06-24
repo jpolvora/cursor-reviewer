@@ -39,6 +39,7 @@ cd "$CALLER_DIR/$TEMP_DIR"
 # Instala apenas as dependências necessárias de produção
 npm ci --omit=dev
 
-echo "=== [Runner] Executando Cursor Reviewer Agent ==="
+VERSION=$(node -e "const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8')); console.log(pkg.version);")
+echo "=== [Runner] Executando Cursor Reviewer Agent (v$VERSION) ==="
 # Executa o reviewer passando o diretório original do chamador como repo-root e encaminhando os argumentos
 node dist/index.js --repo-root "$CALLER_DIR" "$@"

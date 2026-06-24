@@ -57,7 +57,7 @@ async function main(): Promise<void> {
   const config = loadConfig();
   const logger = createLogger(config.verbose);
 
-  logger.section(`${config.projectName} Cursor Reviewer`);
+  logger.section(`${config.projectName} Cursor Reviewer v${config.version}`);
   logger.info(`Modo: ${config.dryRun ? 'DRY-RUN' : 'PIPELINE'}`);
   logger.info(`Model: ${config.model}`);
   logger.info(`Verbosity: ${config.verbose ? 'VERBOSE' : 'QUIET'}`);
