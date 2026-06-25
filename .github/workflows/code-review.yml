@@ -1,0 +1,41 @@
+name: Cursor Code Review
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Typecheck TypeScript
+        run: npm run typecheck
+
+      - name: Run Reviewer Agent
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CURSOR_REVIEWER_REVIEW_SELF: 'true'
+        run: |
+          npx tsx src/index.ts --gh --pr-id ${{ github.event.pull_request.number }} --source-branch "${{ github.head_ref }}" --target-branch "refs/heads/${{ github.event.pull_request.base.ref }}"
+        continue-on-error: true

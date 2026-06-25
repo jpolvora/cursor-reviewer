@@ -17,10 +17,21 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Check if source skills directory exists
-if [ ! -d "$SRC_SKILLS_DIR" ]; then
-  echo "Source skills directory not found locally at $SRC_SKILLS_DIR"
-  echo "Cloning cursor-reviewer repository to retrieve skills..."
+# Detect if we are running from the official cursor-reviewer repository
+IS_CURSOR_REVIEWER_REPO=false
+if [ -f "$SCRIPT_DIR/package.json" ]; then
+  if grep -q '"name": "cursor-reviewer"' "$SCRIPT_DIR/package.json"; then
+    IS_CURSOR_REVIEWER_REPO=true
+  fi
+fi
+
+# Check if source skills directory exists and we are inside the cursor-reviewer repo.
+# If not, it means the script is being run remotely (e.g. via curl) or in a target project.
+# In this case, we clone the repository to a temporary directory to retrieve the skills.
+if [ "$IS_CURSOR_REVIEWER_REPO" = "false" ] || [ ! -d "$SRC_SKILLS_DIR" ]; then
+  if [ "$IS_CURSOR_REVIEWER_REPO" = "false" ] && [ -d "$SRC_SKILLS_DIR" ]; then
+    echo "Running in target repository. Fetching original skills from GitHub..."
+  fi
   TEMP_CLONE_DIR="$(mktemp -d 2>/dev/null || mktemp -d -t 'cursor-reviewer')"
   REPO_URL="${CURSOR_REVIEWER_REPO_URL:-https://github.com/jpolvora/cursor-reviewer.git}"
   REPO_BRANCH="${CURSOR_REVIEWER_REPO_BRANCH:-main}"
