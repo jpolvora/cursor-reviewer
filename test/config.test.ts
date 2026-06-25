@@ -2,14 +2,29 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { isUnexpandedPipelineMacro, loadConfig } from '../src/config.js';
 
+/** Evita poluição quando os testes rodam dentro de GitHub Actions (ex.: GITHUB_REF em PR). */
+const ISOLATED_CI_ENV: Record<string, undefined> = {
+  GITHUB_ACTIONS: undefined,
+  GITHUB_REPOSITORY: undefined,
+  GITHUB_REF: undefined,
+  GITHUB_TOKEN: undefined,
+  GH_TOKEN: undefined,
+  TF_BUILD: undefined,
+  SYSTEM_COLLECTIONURI: undefined,
+  SYSTEM_PULLREQUEST_PULLREQUESTID: undefined,
+  SYSTEM_ACCESSTOKEN: undefined,
+  AZURE_DEVOPS_EXT_PAT: undefined,
+};
+
 function withEnv(env: Record<string, string | undefined>, action: () => void): void {
+  const merged = { ...ISOLATED_CI_ENV, ...env };
   const previous = new Map<string, string | undefined>();
-  for (const key of Object.keys(env)) {
+  for (const key of Object.keys(merged)) {
     previous.set(key, process.env[key]);
-    if (env[key] === undefined) {
+    if (merged[key] === undefined) {
       delete process.env[key];
     } else {
-      process.env[key] = env[key];
+      process.env[key] = merged[key];
     }
   }
 
