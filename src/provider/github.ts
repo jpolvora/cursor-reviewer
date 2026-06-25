@@ -1,3 +1,4 @@
+import { writeFileSync } from 'node:fs';
 import type { ReviewerConfig } from '../config.js';
 import type { Logger } from '../logger.js';
 import { formatCommentForPosting } from '../ado/format-thread.js';
@@ -618,7 +619,6 @@ These issues were reported in a previous round and already resolved/closed. Do *
     const summaryFile = process.env.GITHUB_STEP_SUMMARY;
     if (summaryFile) {
       try {
-        const { writeFileSync } = require('node:fs');
         const markdown = this.buildGHSummaryMarkdown(gate, reviews, dryRun, tokenUsage);
         writeFileSync(summaryFile, markdown, { encoding: 'utf8', flag: 'a' });
       } catch (err) {
