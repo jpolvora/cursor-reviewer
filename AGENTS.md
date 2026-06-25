@@ -124,3 +124,8 @@ Antes de submeter alterações ou finalizar tarefas de desenvolvimento, você **
 *   **Diferenças de Provedores:** Certifique-se de que qualquer nova feature funcione corretamente tanto no Azure DevOps quanto no GitHub. O tratamento de markdown, a API GraphQL/REST e o formato de sugestões interativas são sensivelmente distintos entre as duas plataformas.
 *   **Compatibilidade de Stacks:** Ao adicionar ou modificar stacks, certifique-se de manter compatibilidade com o comportamento de fallback padrão (`ABP/Angular`) e valide que a estratégia de autodetecção funciona e é coberta por testes no `test/config.test.ts`.
 *   **Sincronização de Docs:** Ao alterar o validador de gate (`review-validation.ts`), o controle de rodadas (`round-state.ts`), a lógica de diff, as stacks suportadas ou prompts do sistema, lembre-se de atualizar em conjunto este arquivo `AGENTS.md`, o `README.md` e as referências em `docs/`.
+
+### 3.4 Gerenciamento e Atualização de Skills
+*   **Sincronização com o Usuário:** Ao criar novas skills ou atualizar as existentes na pasta `.agents/skills`, os usuários devem ser capazes de sincronizá-las em seus repositórios locais executando o script `install-skills.sh`.
+*   **Portabilidade do Script:** Sempre que modificar a estrutura de diretórios ou o script `install-skills.sh`, certifique-se de que o instalador continue funcionando de forma portável em sistemas operacionais e terminais diversos (Git Bash no Windows, WSL, Linux, macOS).
+

@@ -33,6 +33,7 @@ Para detalhes arquiteturais e teóricos profundos, consulte a pasta [`docs/`](do
     *   **Azure DevOps:** Emite logging commands (`##vso[task.logissue]`) e anexa um resumo markdown rico na tela de build (`##vso[task.uploadsummary]`).
     *   **GitHub:** Anexa um resumo markdown completo da revisão diretamente na página do workflow via `GITHUB_STEP_SUMMARY`.
 *   **📦 Execução Remota via cURL:** Permite rodar o reviewer remotamente baixando apenas o script `run.sh` da branch `release`, dispensando o clone completo do repositório ou a presença de dependências de desenvolvimento.
+*   **🛠️ Instalador de Skills Interativo (`install-skills.sh`):** Menu interativo no terminal para selecionar, instalar e atualizar as diretrizes agênticas (`skills`) do Cursor no repositório de destino local de maneira simples e segura.
 
 ---
 
@@ -143,6 +144,51 @@ A arquitetura é modular e extensível. Para adicionar suporte a uma nova stack 
 1.  **Registrar no Config:** Abra `src/config.ts` e adicione a nova definição ao dicionário `STACKS`, mapeando o nome amigável, os padrões de arquivos do diff (`includePatterns`) e o nome do arquivo de prompt (ex.: `meu-framework.md`).
 2.  **Mapear o Alias:** No mesmo arquivo, atualize a função `getStackConfig` com as chaves e aliases de normalização da sua stack.
 3.  **Criar o Prompt:** Crie o arquivo markdown correspondente em `skills/stacks/meu-framework.md` detalhando as instruções específicas e preocupações comuns de revisão de código para aquela tecnologia.
+
+---
+
+## 🛠️ Gerenciamento de Skills (`install-skills.sh`)
+
+O Cursor Reviewer disponibiliza uma coleção de diretrizes agênticas e comportamentais pré-configuradas (localizadas em `.agents/skills`). Para instalar ou atualizar essas diretrizes no seu repositório local de desenvolvimento onde você executa o Cursor:
+
+1. Abra o terminal e navegue até a raiz do seu repositório local de destino.
+2. Execute o instalador diretamente via cURL:
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/jpolvora/cursor-reviewer/main/install-skills.sh | bash
+   ```
+3. O menu interativo no console será exibido:
+   ```text
+   ============================================================
+     Cursor Reviewer - Skill Installer
+   ============================================================
+   Source: /path/to/cursor-reviewer/.agents/skills
+   Target: /path/to/my-project/.agents/skills
+   ------------------------------------------------------------
+   Toggle selection by entering the number.
+   Enter 'a' to select/deselect all.
+   Enter 'y' or 'i' to install the selected skills.
+   Enter 'q' to quit.
+   ------------------------------------------------------------
+
+     [ ]  1) code-review
+     [ ]  2) fix-pr
+     [ ]  3) karpathy-guidelines
+     [ ]  4) plan-us
+     [ ]  5) us-delivery-workflow
+   ```
+   - Digite o número correspondente à skill e pressione **Enter** para alternar a seleção (`[ ]` vs `[x]`).
+   - Digite `a` para alternar a seleção de todas as skills.
+   - Confirme a instalação digitando `y` ou `i` e pressionando **Enter**.
+   - Para sair sem alterar nada, digite `q`.
+
+### 🔄 Atualização de Skills
+Se uma skill selecionada já existir no repositório de destino, o script detectará o conflito e solicitará confirmação antes de sobrescrever:
+```text
+Installing 'code-review'...
+  Warning: Destination directory '.agents/skills/code-review' already exists.
+  Overwrite? (y/n):
+```
+Desta forma, quando novas skills forem adicionadas ao `cursor-reviewer` ou as existentes forem atualizadas, você poderá sincronizar os repositórios locais executando o script novamente.
 
 ---
 
