@@ -100,6 +100,7 @@ Se o seu objetivo é modificar ou estender a lógica deste repositório, atente-
 *   `src/provider/` : Contém a interface `PlatformProvider` e as implementações `AdoProvider` (Azure DevOps) e `GithubProvider` (GitHub).
 *   `src/ado/` : Contém validadores (`review-validation.ts`), formatadores de comentário (`format-thread.ts`), controle de rodadas (`round-state.ts`) e o gate lógico (`gate.ts`).
 *   `src/agent/` : Código de streaming do agente, modelagem e uso de tokens.
+*   `skills/stacks/` : Contém os arquivos markdown de recomendações específicas para cada stack.
 
 ### 3.2 Execução de Testes e Validação
 Antes de submeter alterações ou finalizar tarefas de desenvolvimento, você **deve** certificar-se de que os testes passam e que o workspace está higienizado:
@@ -121,4 +122,5 @@ Antes de submeter alterações ou finalizar tarefas de desenvolvimento, você **
 
 ### 3.3 Boas Práticas
 *   **Diferenças de Provedores:** Certifique-se de que qualquer nova feature funcione corretamente tanto no Azure DevOps quanto no GitHub. O tratamento de markdown, a API GraphQL/REST e o formato de sugestões interativas são sensivelmente distintos entre as duas plataformas.
-*   **Sincronização de Docs:** Ao alterar o validador de gate (`review-validation.ts`), o controle de rodadas (`round-state.ts`), a lógica de diff ou prompts do sistema, lembre-se de atualizar em conjunto este arquivo `AGENTS.md`, o `README.md` e as referências em `docs/`.
+*   **Compatibilidade de Stacks:** Ao adicionar ou modificar stacks, certifique-se de manter compatibilidade com o comportamento de fallback padrão (`ABP/Angular`) e valide que a estratégia de autodetecção funciona e é coberta por testes no `test/config.test.ts`.
+*   **Sincronização de Docs:** Ao alterar o validador de gate (`review-validation.ts`), o controle de rodadas (`round-state.ts`), a lógica de diff, as stacks suportadas ou prompts do sistema, lembre-se de atualizar em conjunto este arquivo `AGENTS.md`, o `README.md` e as referências em `docs/`.

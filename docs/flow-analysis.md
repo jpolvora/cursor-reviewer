@@ -61,13 +61,22 @@ Ordem exata em `src/index.ts`:
 - **Filtro de paths:** `getDiffFileSummaries` / `getDiffPatch` limitam o escopo aos arquivos pós-include/exclude (`buildPathArgs` + `filterFilesByScope`).
 - **Diff filter:** `--diff-filter=AMR` (Added, Modified, Renamed) em todos os comandos git diff.
 
-### Arquivos elegíveis (`config.ts`)
+### Arquivos elegíveis e Seleção de Stacks (`config.ts`)
 
-| Include | Exclude (base) | Exclude (self-review) |
-|---------|----------------|------------------------|
-| `**/*.cs`, `**/*.ts`, `**/*.html` | proxies, bin/obj, `.md`, `.csproj`, `secret.txt` | `scripts/cursor-reviewer/**` (default) |
+O escopo de arquivos elegíveis para diff/review é determinado pela **stack tecnológica** selecionada via CLI (`--stack`) ou variável de ambiente (`CURSOR_REVIEWER_STACK`). Por padrão, assume a stack `ABP/Angular`.
 
-Variáveis: `CURSOR_REVIEWER_REVIEW_SELF`, `CURSOR_REVIEWER_EXTRA_EXCLUDE_PATTERNS`.
+As stacks disponíveis e seus padrões de inclusão padrão são:
+
+| Stack | includePatterns padrão |
+|---|---|
+| **ABP/Angular** | `**/*.cs`, `**/*.ts`, `**/*.html`, `*.cs`, `*.ts`, `*.html` |
+| **PHP/Laravel** | `**/*.php`, `**/*.js`, `**/*.ts`, `**/*.vue`, `**/*.html`, `**/*.css`, `**/*.json`, `*.php`, `*.js`, `*.ts`, `*.vue`, `*.html`, `*.css`, `*.json` |
+| **Next.js/React** | `**/*.ts`, `**/*.tsx`, `**/*.js`, `**/*.jsx`, `**/*.html`, `**/*.css`, `**/*.json`, `*.ts`, `*.tsx`, `*.js`, `*.jsx`, `*.html`, `*.css`, `*.json` |
+| **TypeScript** | `**/*.ts`, `**/*.json`, `*.ts`, `*.json` |
+
+O filtro de exclusão (`excludePatterns`) padrão remove proxies, bin/obj, `.md`, `.csproj` e, por padrão, o próprio diretório do runner (`scripts/cursor-reviewer/**`) para evitar self-review indesejado.
+
+Variáveis associadas: `CURSOR_REVIEWER_STACK`, `CURSOR_REVIEWER_REVIEW_SELF`, `CURSOR_REVIEWER_EXTRA_EXCLUDE_PATTERNS`.
 
 ### Work items (Azure DevOps)
 
@@ -104,11 +113,11 @@ Variáveis: `CURSOR_REVIEWER_REVIEW_SELF`, `CURSOR_REVIEWER_EXTRA_EXCLUDE_PATTER
 
 Threads de humanos **não** entram no prompt; **não** entram no resumo de pendentes do bot. Threads resolvidas **não** entram no `existingKeys` (dedup determinístico) — viram apenas memória para o LLM decidir com nova evidência.
 
-### Instruções fixas no prompt
-
+### Instruções fixas e Stack Prompts
 - `skills/SYSTEM_PROMPT.md`: modo read-only, contrato JSON, classificação severity/score e filtro de publicação.
 - `skills/CODE_REVIEW.md`: roteamento para harness do projeto (skills/rules via tools).
-- `src/agent/prompt.ts`: contexto da execução + **análise em duas fases** (triagem → investigação profunda → veredito JSON).
+- `skills/stacks/*.md`: arquivo de recomendações específicas para a stack selecionada (injetado dinamicamente).
+- `src/agent/prompt.ts`: contexto da execução (incluindo o nome da stack ativa) + **análise em duas fases** (triagem → investigação profunda → veredito JSON).
 
 ---
 

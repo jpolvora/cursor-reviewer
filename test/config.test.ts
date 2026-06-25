@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { isUnexpandedPipelineMacro, loadConfig } from '../src/config.js';
 
 /** Evita poluição quando os testes rodam dentro de GitHub Actions (ex.: GITHUB_REF em PR). */
@@ -295,17 +296,29 @@ describe('loadConfig', () => {
   });
 
   describe('stack selection', () => {
-    it('inicia com a stack padrão ABP/Angular se nenhuma for informada', () => {
-      withEnv(
-        {
-          CURSOR_API_KEY: 'cursor_test',
-        },
-        () => {
-          const config = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature']);
-          assert.equal(config.stack, 'ABP/Angular');
-          assert.ok(config.includePatterns.includes('**/*.cs'));
-        },
-      );
+    it('inicia com a stack padrão ABP/Angular se nenhuma for informada e o projeto for vazio/desconhecido', () => {
+      const dir = 'test-temp-default-abp';
+      mkdirSync(dir, { recursive: true });
+      try {
+        withEnv(
+          {
+            CURSOR_API_KEY: 'cursor_test',
+          },
+          () => {
+            const config = loadConfig([
+              '--dry-run',
+              '--repo-root',
+              dir,
+              '--source-branch',
+              'refs/heads/feature',
+            ]);
+            assert.equal(config.stack, 'ABP/Angular');
+            assert.ok(config.includePatterns.includes('**/*.cs'));
+          },
+        );
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
     });
 
     it('permite selecionar stack via variável de ambiente', () => {
@@ -380,18 +393,136 @@ describe('loadConfig', () => {
       );
     });
 
-    it('usa default ABP/Angular quando CURSOR_REVIEWER_STACK é macro ADO não expandida', () => {
-      withEnv(
-        {
-          CURSOR_API_KEY: 'cursor_test',
-          CURSOR_REVIEWER_STACK: '$(CURSOR_REVIEWER_STACK)',
-        },
-        () => {
-          const config = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature']);
-          assert.equal(config.stack, 'ABP/Angular');
-          assert.ok(config.includePatterns.includes('**/*.cs'));
-        },
-      );
+    it('usa default ABP/Angular quando CURSOR_REVIEWER_STACK é macro ADO não expandida e o projeto for vazio/desconhecido', () => {
+      const dir = 'test-temp-macro-abp';
+      mkdirSync(dir, { recursive: true });
+      try {
+        withEnv(
+          {
+            CURSOR_API_KEY: 'cursor_test',
+            CURSOR_REVIEWER_STACK: '$(CURSOR_REVIEWER_STACK)',
+          },
+          () => {
+            const config = loadConfig([
+              '--dry-run',
+              '--repo-root',
+              dir,
+              '--source-branch',
+              'refs/heads/feature',
+            ]);
+            assert.equal(config.stack, 'ABP/Angular');
+            assert.ok(config.includePatterns.includes('**/*.cs'));
+          },
+        );
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    describe('autodetect stack', () => {
+      it('detecta PHP/Laravel se artisan ou composer.json estiver presente', () => {
+        const dir = 'test-temp-autodetect-laravel';
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(`${dir}/artisan`, '');
+        try {
+          withEnv({ CURSOR_API_KEY: 'cursor_test' }, () => {
+            const config = loadConfig([
+              '--dry-run',
+              '--repo-root',
+              dir,
+              '--source-branch',
+              'refs/heads/feature',
+            ]);
+            assert.equal(config.stack, 'PHP/Laravel');
+            assert.equal(config.stackSource, 'detected');
+          });
+        } finally {
+          rmSync(dir, { recursive: true, force: true });
+        }
+      });
+
+      it('detecta Next.js/React se next.config.js estiver presente', () => {
+        const dir = 'test-temp-autodetect-next';
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(`${dir}/next.config.js`, '');
+        try {
+          withEnv({ CURSOR_API_KEY: 'cursor_test' }, () => {
+            const config = loadConfig([
+              '--dry-run',
+              '--repo-root',
+              dir,
+              '--source-branch',
+              'refs/heads/feature',
+            ]);
+            assert.equal(config.stack, 'Next.js/React');
+            assert.equal(config.stackSource, 'detected');
+          });
+        } finally {
+          rmSync(dir, { recursive: true, force: true });
+        }
+      });
+
+      it('detecta TypeScript se tsconfig.json estiver presente', () => {
+        const dir = 'test-temp-autodetect-ts';
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(`${dir}/tsconfig.json`, '{}');
+        try {
+          withEnv({ CURSOR_API_KEY: 'cursor_test' }, () => {
+            const config = loadConfig([
+              '--dry-run',
+              '--repo-root',
+              dir,
+              '--source-branch',
+              'refs/heads/feature',
+            ]);
+            assert.equal(config.stack, 'TypeScript');
+            assert.equal(config.stackSource, 'detected');
+          });
+        } finally {
+          rmSync(dir, { recursive: true, force: true });
+        }
+      });
+
+      it('detecta ABP/Angular se arquivos .sln ou .csproj estiverem presentes', () => {
+        const dir = 'test-temp-autodetect-abp';
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(`${dir}/Foo.sln`, '');
+        try {
+          withEnv({ CURSOR_API_KEY: 'cursor_test' }, () => {
+            const config = loadConfig([
+              '--dry-run',
+              '--repo-root',
+              dir,
+              '--source-branch',
+              'refs/heads/feature',
+            ]);
+            assert.equal(config.stack, 'ABP/Angular');
+            assert.equal(config.stackSource, 'detected');
+          });
+        } finally {
+          rmSync(dir, { recursive: true, force: true });
+        }
+      });
+
+      it('cai no fallback padrão ABP/Angular se nada for detectado', () => {
+        const dir = 'test-temp-autodetect-empty';
+        mkdirSync(dir, { recursive: true });
+        try {
+          withEnv({ CURSOR_API_KEY: 'cursor_test' }, () => {
+            const config = loadConfig([
+              '--dry-run',
+              '--repo-root',
+              dir,
+              '--source-branch',
+              'refs/heads/feature',
+            ]);
+            assert.equal(config.stack, 'ABP/Angular');
+            assert.equal(config.stackSource, 'fallback');
+          });
+        } finally {
+          rmSync(dir, { recursive: true, force: true });
+        }
+      });
     });
   });
 });

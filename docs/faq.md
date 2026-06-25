@@ -146,9 +146,50 @@ flowchart TD
 
 ### Quais variáveis de ambiente são mais usadas?
 
-**Resposta:** `CURSOR_API_KEY` (obrig.), `CURSOR_REVIEWER_MODEL`, `AZURE_DEVOPS_EXT_PAT`, `CURSOR_REVIEWER_TARGET_BRANCH`, `CURSOR_REVIEWER_MAX_ROUNDS` (default 5), `CURSOR_REVIEWER_TIMEOUT_MS`, `CURSOR_REVIEWER_REPO_ROOT`. Lista completa: [`../README.md`](../README.md).
+**Resposta:** `CURSOR_API_KEY` (obrig.), `CURSOR_REVIEWER_MODEL`, `AZURE_DEVOPS_EXT_PAT`, `CURSOR_REVIEWER_TARGET_BRANCH`, `CURSOR_REVIEWER_MAX_ROUNDS` (default 5), `CURSOR_REVIEWER_TIMEOUT_MS`, `CURSOR_REVIEWER_REPO_ROOT`, `CURSOR_REVIEWER_STACK` (seleção de stack). Lista completa: [`../README.md`](../README.md).
 
 *Evidência:* `src/config.ts`; `test/config.test.ts`.
+
+### Como funciona a seleção de Stacks Tecnológicas?
+
+**Resposta:** Permite focar o review em determinadas extensões de arquivos e carregar recomendações de arquitetura/segurança adequadas. É configurada explicitamente via flag CLI `--stack` ou env `CURSOR_REVIEWER_STACK`. Se a stack informada for desconhecida, ocorre um erro fail-fast. Caso a variável contiver uma macro não-expandida do ADO (como `$(CURSOR_REVIEWER_STACK)`), o runner resolve automaticamente para o default. Se nenhuma stack ou env for informada, o runner tentará autodetectar a stack do projeto.
+
+*Evidência:* `src/config.ts`; `test/config.test.ts`.
+
+### Como funciona a estratégia de autodetecção automática da stack?
+
+**Resposta:** O runner inspeciona a raiz do repositório (`repoRoot`) procurando por arquivos específicos ou pacotes declarados no `package.json`:
+1.  **PHP/Laravel:** Presença do arquivo `artisan` ou `composer.json`.
+2.  **Next.js/React:** Presença de arquivos de configuração como `next.config.js`/`next.config.mjs`/`next.config.ts`, ou o pacote `next` nas dependências do `package.json`.
+3.  **ABP/Angular:** Presença de arquivos `angular.json`, diretório `angular/` ou dependência `@angular/core` no `package.json`.
+4.  **TypeScript:** Presença de `tsconfig.json` ou pacote `typescript`/`tsx` no `package.json`.
+5.  **C#/.NET (ABP/Angular):** Presença de arquivos com extensões `.sln` ou `.csproj`.
+
+Caso nenhuma das heurísticas acima identifique uma stack, o runner assume a stack padrão `ABP/Angular` como fallback. O log da inicialização indica explicitamente qual stack foi ativada e de onde veio sua definição (`configurada via CLI`, `configurada via env`, `autodetectada` ou `fallback padrão`).
+
+*Evidência:* `src/config.ts`; `src/index.ts`; `test/config.test.ts`.
+
+### Quais stacks são suportadas por padrão e o que elas filtram?
+
+**Resposta:**
+- **ABP/Angular** (Padrão): Filtra `.cs`, `.ts`, `.html` (mantendo 100% de compatibilidade).
+- **PHP/Laravel**: Filtra `.php`, `.js`, `.ts`, `.vue`, `.html`, `.css`, `.json`.
+- **Next.js/React**: Filtra `.ts`, `.tsx`, `.js`, `.jsx`, `.html`, `.css`, `.json`.
+- **TypeScript**: Filtra `.ts`, `.json`.
+
+*Evidência:* `src/config.ts`.
+
+### Como a stack se comporta em execuções de testes E2E (`--seed-test`)?
+
+**Resposta:** Quando a flag `--seed-test` é fornecida, o runner ignora qualquer valor de stack configurado por env var e força a stack para `ABP/Angular`. Isso impede que fixtures C# e Angular de validação sejam filtradas e causem falhas nos testes locais.
+
+*Evidência:* `src/config.ts`; `test/config.test.ts`.
+
+### Como os arquivos de recomendação por stack são embutidos?
+
+**Resposta:** Durante a montagem do prompt, o runner busca o arquivo de recomendações estáticas em `skills/stacks/<nome-da-stack>.md` (como `typescript.md` ou `php-laravel.md`) e anexa seu conteúdo na seção `# Recomendações Específicas da Stack (<nome>)` no prompt final do agente.
+
+*Evidência:* `src/agent/prompt.ts`; `test/prompt.test.ts`.
 
 ---
 

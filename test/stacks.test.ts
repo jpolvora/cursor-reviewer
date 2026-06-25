@@ -25,6 +25,7 @@ describe('stacks config', () => {
     assert.ok(ts);
     assert.equal(ts.name, 'TypeScript');
     assert.ok(ts.includePatterns.includes('**/*.ts'));
+    assert.ok(ts.includePatterns.includes('**/*.tsx'));
     assert.ok(ts.includePatterns.includes('**/*.json'));
   });
 

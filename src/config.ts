@@ -1,4 +1,5 @@
 import { resolve, relative, isAbsolute } from 'node:path';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import {
   assertSupportedCursorReviewerModelId,
   DEFAULT_CURSOR_REVIEWER_MODEL,
@@ -60,7 +61,7 @@ export const STACKS: Record<string, StackConfig> = {
   },
   'typescript': {
     name: 'TypeScript',
-    includePatterns: ['**/*.ts', '**/*.json', '*.ts', '*.json'],
+    includePatterns: ['**/*.ts', '**/*.tsx', '**/*.json', '*.ts', '*.tsx', '*.json'],
     promptFileName: 'typescript.md',
   },
 };
@@ -79,6 +80,72 @@ export function getStackConfig(stackName: string): StackConfig | undefined {
   if (normalized === 'typescript' || normalized === 'ts') {
     return STACKS['typescript'];
   }
+  return undefined;
+}
+
+export function detectStack(repoRoot: string): string | undefined {
+  try {
+    // 1. Check Laravel/PHP
+    if (existsSync(resolve(repoRoot, 'artisan')) || existsSync(resolve(repoRoot, 'composer.json'))) {
+      return 'PHP/Laravel';
+    }
+
+    // Read package.json if exists to inspect dependencies
+    const pkgPath = resolve(repoRoot, 'package.json');
+    let isAngular = false;
+    let isNext = false;
+    let isTs = false;
+
+    if (existsSync(pkgPath)) {
+      try {
+        const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as {
+          dependencies?: Record<string, string>;
+          devDependencies?: Record<string, string>;
+        };
+        const deps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
+
+        isAngular = '@angular/core' in deps;
+        isNext = 'next' in deps;
+        isTs = 'typescript' in deps || 'tsx' in deps;
+      } catch {
+        // ignore
+      }
+    }
+
+    // 2. Check Next.js/React
+    if (
+      isNext ||
+      existsSync(resolve(repoRoot, 'next.config.js')) ||
+      existsSync(resolve(repoRoot, 'next.config.mjs')) ||
+      existsSync(resolve(repoRoot, 'next.config.ts'))
+    ) {
+      return 'Next.js/React';
+    }
+
+    // 3. Check ABP/Angular
+    if (
+      isAngular ||
+      existsSync(resolve(repoRoot, 'angular.json')) ||
+      existsSync(resolve(repoRoot, 'angular')) ||
+      existsSync(resolve(repoRoot, 'src', 'frontend'))
+    ) {
+      return 'ABP/Angular';
+    }
+
+    // 4. Check C# / Solution files (check before generic tsconfig.json)
+    const files = readdirSync(repoRoot);
+    if (files.some((f) => f.endsWith('.sln') || f.endsWith('.csproj'))) {
+      return 'ABP/Angular';
+    }
+
+    // 5. Check TypeScript
+    if (isTs || existsSync(resolve(repoRoot, 'tsconfig.json'))) {
+      return 'TypeScript';
+    }
+  } catch {
+    // ignore filesystem errors
+  }
+
   return undefined;
 }
 
@@ -118,6 +185,7 @@ export interface ReviewerConfig {
   maxRounds: number;
   stack: string;
   stackPromptPath: string | null;
+  stackSource: 'cli' | 'env' | 'detected' | 'fallback';
 }
 
 export interface CliArgs {
@@ -478,8 +546,33 @@ export function loadConfig(argv: string[] = process.argv.slice(2)): ReviewerConf
     );
   }
 
-  const stackEnv = resolveOptionalEnv(process.env.CURSOR_REVIEWER_STACK, 'ABP/Angular');
-  const stackName = cli.stack || (seedTest ? 'ABP/Angular' : stackEnv);
+  let stackName: string;
+  let stackSource: 'cli' | 'env' | 'detected' | 'fallback';
+
+  if (cli.stack) {
+    stackName = cli.stack;
+    stackSource = 'cli';
+  } else if (seedTest) {
+    stackName = 'ABP/Angular';
+    stackSource = 'fallback';
+  } else {
+    const rawEnv = process.env.CURSOR_REVIEWER_STACK?.trim() ?? '';
+    const isEnvSet = rawEnv && !isUnexpandedPipelineMacro(rawEnv);
+    if (isEnvSet) {
+      stackName = resolveOptionalEnv(process.env.CURSOR_REVIEWER_STACK, 'ABP/Angular');
+      stackSource = 'env';
+    } else {
+      const detected = detectStack(repoRoot);
+      if (detected) {
+        stackName = detected;
+        stackSource = 'detected';
+      } else {
+        stackName = 'ABP/Angular';
+        stackSource = 'fallback';
+      }
+    }
+  }
+
   const stackConfig = getStackConfig(stackName);
   if (!stackConfig) {
     throw new Error(
@@ -523,6 +616,7 @@ export function loadConfig(argv: string[] = process.argv.slice(2)): ReviewerConf
     maxRounds: parseNonNegativeInt(process.env.CURSOR_REVIEWER_MAX_ROUNDS, DEFAULT_MAX_ROUNDS),
     stack: stackConfig.name,
     stackPromptPath,
+    stackSource,
   };
 }
 
