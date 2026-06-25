@@ -1,587 +1,188 @@
 # Cursor Reviewer — Code Review Agêntico (Review-Only)
 
-Revisor automatizado de Pull Requests para **Azure DevOps**, usando o [**Cursor SDK**](https://cursor.com/docs/sdk/typescript) (`@cursor/sdk`) em modo agêntico. Executa análise profunda com o harness do repositório (`AGENTS.md`, `.cursor/rules/`, skill `code-review`) e publica threads acionáveis na PR. **Não corrige código** — o desenvolvedor trata as issues diretamente nas threads da PR.
+O **Cursor Reviewer** é um revisor de Pull Requests automatizado e portável para **Azure DevOps** e **GitHub**. Ele utiliza o [**Cursor SDK**](https://cursor.com/docs/sdk/typescript) (`@cursor/sdk`) em modo agêntico para realizar análises profundas diretamente no diff do repositório, guiado pelo harness do projeto (regras do `.cursor/rules/`, `AGENTS.md` e instruções de code-review). 
+
+O revisor atua **exclusivamente em modo de leitura (review-only)**, publicando threads acionáveis nas linhas afetadas da PR. Ele **não altera arquivos no repositório**. A decisão final de aplicar a correção sugerida ou encerrar a thread é sempre do desenvolvedor.
+
+> [!IMPORTANT]
+> **Modo Somente Leitura:** O agente opera dentro de um ambiente seguro e controlado. Ele está tecnicamente impedido de realizar commits, push, formatar código ou executar scripts modificadores no repositório.
 
 ---
 
-## Documentação complementar (`docs/`)
+## 📖 Documentação Complementar (`docs/`)
 
-Além deste README, a subpasta [`docs/`](docs/) concentra a referência de fluxo e classificação:
+Para detalhes arquiteturais e teóricos profundos, consulte a pasta [`docs/`](docs/):
 
-| Documento | Descrição |
-|-----------|-----------|
-| [`docs/flow-analysis.md`](docs/flow-analysis.md) | **Referência única** — fluxo completo de análise e decisão (contexto, fases do agente, gate, work items, o que vira thread real) |
-| [`docs/faq.md`](docs/faq.md) | **FAQ** — fluxo em ordem de execução, US/Task no prompt, configuração, ADO |
-| [`docs/score_calc.md`](docs/score_calc.md) | Score (0–10) e severidade (`critical` / `warning` / `suggestion`) — rubrica de atribuição pelo agente, gate programático e exemplos |
-| [`docs/two-phase-execution-model.md`](docs/two-phase-execution-model.md) | Modelo de execução — por que as duas fases rodam numa chamada única ao agente e quando multi-agente faria sentido |
+*   **[Fluxo de Análise e Decisão](docs/flow-analysis.md):** Guia completo de ciclo de vida, do carregamento de contexto ao gate final.
+*   **[Perguntas Frequentes (FAQ)](docs/faq.md):** Dúvidas comuns de configuração, comportamento do bot e regras.
+*   **[Cálculo de Score e Severidade](docs/score_calc.md):** Rubrica detalhada do score (0–10) e severidades (`critical`, `warning`, `suggestion`).
+*   **[Modelo de Execução em Duas Fases](docs/two-phase-execution-model.md):** Detalhes sobre a arquitetura de triagem e investigação profunda em um único agente.
 
 ---
 
-## Portabilidade e Customização de Prompts
+## 🚀 Recursos Principais e Novidades
 
-O `cursor-reviewer` é **completamente autocontido** e não acessa arquivos externos de skills fora do seu próprio diretório.
-
-O runner pode ser executado a partir de sua própria raiz e configurado para atuar em qualquer repositório Git alvo usando o parâmetro `--repo-root <caminho>` ou a variável de ambiente `CURSOR_REVIEWER_REPO_ROOT`. Por padrão, se não forem configurados, o runner assume o caminho `demo-project` relativo à sua própria pasta (útil para testar localmente com um projeto de demonstração). Para revisar outro repositório Git, use `--repo-root <caminho>` ou a variável de ambiente `CURSOR_REVIEWER_REPO_ROOT`. O runner valida que o diretório resolvido contém uma pasta `.git` válida e falha imediatamente (exit 1) caso os pré-requisitos abaixo não sejam atendidos.
-
-| Arquivo local de Prompt / Skill | Editável / Customizável | Descrição |
-|---------------------------------|-------------------------|-----------|
-| `skills/SYSTEM_PROMPT.md` | **Sim** | Contrato portável: modo read-only, processo em duas fases e schema JSON de saída. |
-| `skills/CODE_REVIEW.md` | **Sim** | Instruções para consultar o harness do projeto (`AGENTS.md`, `.cursor/rules/`, `.agents/skills/`). |
-
-Edite `SYSTEM_PROMPT.md` para ajustar o contrato da pipeline. Critérios técnicos e checklist ficam nas skills do repositório alvo (`.agents/skills/code-review/`, etc.) — o runner carrega `CODE_REVIEW.md` em runtime para orientar o agente a usá-las via tools.
-
-**Fail-fast:** erros de validação, configuração ou execução encerram com exit code 1. Issues de review **não** contam como falha.
+*   **🔌 Integração Multiprovedor (Azure DevOps & GitHub):** Suporte nativo a ambas as plataformas. O provedor correto é inferido automaticamente pelas variáveis de CI ou pode ser forçado pelas flags CLI (`--ado` ou `--gh`).
+*   **📝 Sugestões Interativas:** 
+    *   No **GitHub**, as correções sugeridas utilizam o formato nativo ` ```suggestion `, permitindo que o desenvolvedor aplique a correção na PR com um único clique.
+    *   No **Azure DevOps**, que não suporta o recurso de sugestão interativa, as cercas são normalizadas automaticamente para blocos de código neutros (` ```csharp `, ` ```ts `, etc.), garantindo uma formatação limpa.
+*   **⚖️ Garantia de Convergência (Orçamento de Rodadas):** Utiliza um contador de rodadas persistido em um comentário de estado (`<!-- reviewer-round-state -->`). Se as rodadas excederem o limite (default: 5) e continuarem ocorrendo issues abertas, o bot entra em **escalonamento**: publica apenas issues de severidade `critical` (segurança/quebra de negócio) e adiciona um aviso solicitando **revisão humana**.
+*   **🔍 Mapeamento Automático de Regras:** Lê e filtra arquivos de regras locais `.cursor/rules/*.mdc` associados aos arquivos alterados no diff antes do início da análise pelo agente.
+*   **📊 Relatórios e Visibilidade na Build:** 
+    *   **Azure DevOps:** Emite logging commands (`##vso[task.logissue]`) e anexa um resumo markdown rico na tela de build (`##vso[task.uploadsummary]`).
+    *   **GitHub:** Anexa um resumo markdown completo da revisão diretamente na página do workflow via `GITHUB_STEP_SUMMARY`.
+*   **📦 Execução Remota via cURL:** Permite rodar o reviewer remotamente baixando apenas o script `run.sh` da branch `release`, dispensando o clone completo do repositório ou a presença de dependências de desenvolvimento.
 
 ---
 
-## O que faz
+## 🛠️ Configuração de Variáveis de Ambiente
 
-1. **Prepara o workspace git** — diff `target...HEAD` (modo local ou CI)
-2. **Filtra arquivos elegíveis** — `.cs`, `.ts`, `.html` (exclui proxies, bin/obj, `.md`, etc.)
-3. **Coleta contexto ADO** — work items vinculados + threads existentes do bot
-4. **Agente Cursor SDK** — análise em **duas fases** (triagem conservadora → investigação analítica + veredito JSON)
-5. **Publica uma thread por issue real** — score, urgência, análise, caminhos impactados e correção sugerida
-6. **Resolve threads antigas** — somente quando o agente confirma em `resolvedThreads` (por `threadId` ou `fileName`+`lineNumber`)
-7. **Publica resumo positivo** — thread fechada com `reviewSummary` quando a PR está limpa (sem issues novas nem pendentes)
-8. **Resume o review** — reporta issues na PR; **não bloqueia** a pipeline (exit 0 mesmo com threads abertas)
-
-## O que não faz
-
-- Auto-fix, commit ou push na branch da PR
-- Resolução automática só porque a linha sumiu do diff
-- Publicação de nits (score ≤ 2), sugestões estéticas ou alertas sem impacto material
-- Bloqueio da pipeline por issues de review (exit 0 mesmo com threads abertas)
-- Bloqueio por threads de humanos ou de outros bots
-
----
-
-## Stack
-
-| Componente | Função |
-|------------|--------|
-| Node.js 22.13+ | Runtime exigido pelo `@cursor/sdk` |
-| `@cursor/sdk` | Agente local (`Agent.create` + stream) com `settingSources: ['project']` |
-| TypeScript + tsx | Código-fonte e entrypoint |
-| `tsx --env-file` | Carregamento automático de variáveis do `.env` |
-
-> **Nota:** o `@cursor/sdk` **não** exige instalar o [Cursor CLI](https://cursor.com/docs/cli/installation). O CLI (`agent`) é alternativa para CI via shell; esta pipeline usa apenas o SDK TypeScript.
-
----
-
-## Fluxo
-
-```
-PR → pipeline → cursor-reviewer
-                  ├─ git: diff target...HEAD (local ou CI)
-                  ├─ filtro include/exclude
-                  ├─ ADO: work items + threads existentes
-                  ├─ Agent: análise 2 fases (skills + harness)
-                  ├─ parse JSON (reviews + resolvedThreads + reviewSummary)
-                  ├─ ADO: resolve confirmadas → post threads → post summary (se limpo)
-                  └─ resumo review → exit 0 (issues não bloqueiam) | exit 1 (erro)
-```
-
-Correções ficam com o desenvolvedor, que trata as threads diretamente na PR.
-
----
-
-## Modos git (local vs CI)
-
-| Modo | Quando | Comportamento |
-|------|--------|---------------|
-| **Local** | Branch git atual = `--source-branch` | Usa `HEAD` diretamente; diff `{targetRef}...HEAD` |
-| **Local + uncommitted** | `--include-uncommitted` ou `--seed-test` | Acrescenta staged/unstaged/untracked vs `HEAD` ao escopo (fixtures seed temporárias) |
-| **CI** | Detached HEAD ou branch diferente | `git fetch origin` das refs source/target; diff `origin/{target}...origin/{source}` |
-
-Se a ref target não existir localmente, o script faz fetch mínimo de `origin/{target}` (`--depth=1`).
-
----
-
-## Arquivos elegíveis
-
-Filtros em `config.ts`, configuráveis parcialmente via env:
-
-| Tipo | Padrões |
-|------|---------|
-| **Include** | `**/*.cs`, `**/*.ts`, `**/*.html`, `*.cs`, `*.ts`, `*.html` |
-| **Exclude (base)** | `*/proxy/*`, `*/bin/*`, `*/obj/*`, `*.md`, `*.csproj`, `secret.txt` |
-| **Exclude (self-review)** | O próprio diretório do runner (calculado dinamicamente em relação a `repoRoot`) — **ativo por padrão** para evitar loops de self-review. Se o runner estiver fora do `repoRoot`, utiliza por segurança o padrão de fallback `scripts/cursor-reviewer/**`. |
-
-| Variável | Default | Descrição |
-|----------|---------|-----------|
-| `CURSOR_REVIEWER_REVIEW_SELF` | `false` | `true` inclui `scripts/cursor-reviewer/**` no review (só para desenvolver o runner) |
-| `CURSOR_REVIEWER_EXTRA_EXCLUDE_PATTERNS` | — | Globs extras separados por vírgula (ex.: `scripts/foo/**,**/generated/**`) |
-
-Diff considera apenas arquivos **adicionados, modificados ou renomeados** (`--diff-filter=AMR`). Com `--include-uncommitted`, também entram arquivos **não commitados** no working tree (útil para `npm run test:seed` sem commits artificiais).
-
----
-
-## Convergência — orçamento de rodadas (anti-loop fix→review)
-
-Para evitar o ciclo infinito `fix-pr ↔ reviewer`, o runner persiste um **contador de rodadas** numa thread geral da PR (marcador `<!-- reviewer-round-state -->`, atualizada via PATCH a cada rodada). Quando a rodada atual excede `CURSOR_REVIEWER_MAX_ROUNDS` (default 5) **e ainda há issues abertas**, entra em **escalonamento**:
-
-- publica apenas achados `critical`;
-- **suprime** novos warnings/suggestions (não vira thread);
-- registra um aviso de **revisão humana recomendada** na thread de estado.
-
-Isso garante terminação: após o orçamento, a decisão volta para o humano em vez de gerar apontamentos indefinidamente. `0` desabilita o mecanismo. A garantia de *recall* na rodada 1 (achar tudo de uma vez) vem do `SYSTEM_PROMPT.md` + passo 2.5 de generalização por classe no prompt.
-
----
-
-## Resumo do review (não bloqueia a pipeline)
-
-O runner **publica threads** na PR quando encontra issues, mas **não reprova a build** por isso. A pipeline conclui com **exit 0** mesmo que existam threads novas ou pendentes do bot `[Cursor Reviewer]`. O desenvolvedor trata as threads diretamente na PR.
-
-Threads de humanos ou de outros bots **não** entram no resumo de pendentes do bot.
-
-**Visibilidade na build (Azure DevOps):** ao detectar `TF_BUILD=true`, o runner emite logging commands — `##vso[task.logissue]` por achado (aba **Issues**) e `##vso[task.uploadsummary]` com um resumo markdown anexado à build. Não altera o exit code (issues seguem sem bloquear). Fora da pipeline é no-op.
-
-**Prompt enviado ao agente:** imediatamente antes de `agent.send()`, o runner imprime o prompt completo gerado por `buildAgentPrompt` entre os marcadores `Inicio Prompt:` e `Fim do prompt`. Na **Azure Pipeline** o bloco fica numa seção colapsável (`##[group]` / `##[endgroup]`); no terminal local usa banners e destaque ANSI de cabeçalhos/separadores markdown. Cores: automáticas em TTY/pipeline; `NO_COLOR=1` desliga; `FORCE_COLOR=1` força; `CURSOR_REVIEWER_PROMPT_COLOR=false` desliga só na pipeline.
-
-**Diff vazio + contexto ADO válido:** o agente é omitido; o resumo ainda lista threads pendentes do bot (sem falhar a pipeline).
-
-**Dry-run:** simula publicação/resolução sem POST real; exit 0 salvo erro de execução.
-
-### Dedup e resolução
-
-- **Dedup de publicação:** chave `arquivoNormalizado|line:N` — não reposta na mesma linha
-- **Resolução:** match por `threadId` ou `fileName`+`lineNumber` em `resolvedThreads`; reply com marcador `<!-- resolution-reply -->` + status `fixed`
-- **Resumo positivo:** marcador `<!-- review-summary -->`; thread geral fechada; dedup por conteúdo idêntico
-
-### Política reviews vs reviewSummary
-
-| Condição | Comportamento |
-|----------|---------------|
-| `reviews` com itens críticos | `reviewSummary` ignorado |
-| `reviews` + `reviewSummary` juntos | Mantém reviews; limpa summary |
-| Sem reviews, sem críticos, sem threads pendentes | Publica `reviewSummary` (thread fechada) |
-
-### Códigos de saída
-
-| Exit code | Significado |
-|-----------|-------------|
-| 0 | Execução concluída (com ou sem issues de review publicadas/pendentes). |
-| 1 | Erro fatal: parâmetros inválidos, configuração ausente, falha ADO/agente ou exceção não tratada. |
-
----
-
-## Configuração
-
-### `.env`
+Crie um arquivo `.env` na raiz do projeto com as chaves necessárias (veja [.env.example](.env.example)):
 
 ```bash
 cp .env.example .env
 ```
 
-| Variável | Obrigatório | Descrição |
-|----------|-------------|-----------|
-| `CURSOR_API_KEY` | Sim | API key do Cursor (Dashboard → Integrations ou Service Account) |
-| `AZURE_DEVOPS_EXT_PAT` | Não* | PAT com Code (Read & Write) + Work Items (Read) — *obrigatório para dry-run com contexto ADO ou publicação local |
-| `CURSOR_REVIEWER_MODEL` | Não | Modelo do agente (default: `composer-2.5`) |
-| `CURSOR_REVIEWER_TARGET_BRANCH` | Não | Branch de comparação do diff (default: `refs/heads/master`) |
-| `CURSOR_REVIEWER_BOT_TAG` | Não | Tag do bot na PR (default: `[Cursor Reviewer]`) |
-| `CURSOR_REVIEWER_MAX_ROUNDS` | Não | Orçamento de rodadas fix→review antes de escalar para revisão humana (default: `5`; `0` desabilita). Ao exceder, com issues abertas, o runner publica só `critical`, suprime warnings/suggestions e registra um aviso de handoff humano numa thread de estado de rodada. |
-| `CURSOR_REVIEWER_VERBOSE` | Não | Logs verbosos (default: `true`) |
-| `CURSOR_REVIEWER_TIMEOUT_MS` | Não | Timeout do agente em ms (default: `600000` — 10 min); ao estourar, o run é **cancelado** via `run.cancel()` |
-| `CURSOR_REVIEWER_SANDBOX` | Não | Sandbox read-only do SDK (default: `true`); `false` desativa só para depuração local. Em ambientes sem suporte a sandbox (ex.: agentes de CI), o runner cai automaticamente para execução sem sandbox |
-| `CURSOR_REVIEWER_DRY_RUN` | Não | Dry-run via env (default: `false`; prefira `--dry-run`; exit 0 salvo erro) |
-| `CURSOR_REVIEWER_ADO_ORG` | Não | Org ADO (local; pipeline infere de `SYSTEM_COLLECTIONURI`) |
-| `CURSOR_REVIEWER_ADO_PROJECT` | Não | Projeto ADO |
-| `CURSOR_REVIEWER_ADO_REPO` | Não | Repositório ADO |
-| `CURSOR_REVIEWER_PR_ID` | Não | ID da PR |
-| `CURSOR_REVIEWER_REPO_ROOT` | Não | Caminho para a raiz do repositório/projeto a ser analisado (default: `demo-project` relativo à raiz do runner). O runner valida que o caminho contém um diretório Git válido (com pasta `.git`). |
-
-O carregamento do `.env` é feito via `tsx --env-file-if-exists=.env` nos scripts npm.
-
-### Alterar o modelo LLM do agente
-
-O modelo é passado ao Cursor SDK como `model: { id: ... }` em `src/agent/stream.ts`. A resolução segue esta ordem de prioridade:
-
-1. **CLI** — `--model <id>` (sobrescreve tudo)
-2. **Variável de ambiente** — `CURSOR_REVIEWER_MODEL`
-3. **Default** — `composer-2.5` (ID canônico do SDK; não use aliases legados como `composer`, `composer-latest` ou `composer-2`)
-
-**Local (`.env`):**
-```bash
-CURSOR_REVIEWER_MODEL=composer-2.5
-```
-
-**Local (flag pontual):**
-```bash
-npm run review -- --dry-run --model claude-4.6-sonnet-medium-thinking
-```
-
-**Azure Pipelines (variable group ou variáveis da pipeline):**
-1. Em **Pipelines → Library**, adicione a variável `CURSOR_REVIEWER_MODEL` com o ID do modelo desejado.
-2. O step `Run Cursor Reviewer Agent` já repassa `CURSOR_REVIEWER_MODEL: $(CURSOR_REVIEWER_MODEL)` para o runner.
-
-IDs comuns (consulte `Cursor.models.list()`): `composer-2.5` (default, canônico), `composer-2.5-fast`, `claude-4.6-sonnet-medium-thinking`, `gpt-5.4-medium`. Aliases `composer` / `composer-2` redirecionam internamente — prefira o ID canônico.
+| Variável | Tipo / Padrão | Descrição |
+| :--- | :--- | :--- |
+| `CURSOR_API_KEY` | **Obrigatório** | Chave de API do painel do Cursor (Integrations / Service Account). |
+| `AZURE_DEVOPS_EXT_PAT` | Opcional | PAT do ADO com permissão de escrita em Code e leitura em Work Items. |
+| `GITHUB_TOKEN` ou `GH_TOKEN` | Opcional | Token de acesso para APIs do GitHub (REST/GraphQL). |
+| `CURSOR_REVIEWER_MODEL` | `composer-2.5` | Modelo LLM utilizado pelo agente (ex: `composer-2.5-fast`, `claude-4.6-sonnet-medium-thinking`). |
+| `CURSOR_REVIEWER_TARGET_BRANCH`| `refs/heads/master` | Branch de comparação para gerar o diff git. |
+| `CURSOR_REVIEWER_BOT_TAG` | `[Cursor Reviewer]` | Tag de identificação do bot nos comentários da PR. |
+| `CURSOR_REVIEWER_MAX_ROUNDS` | `5` | Limite de iterações de correções antes do handoff humano (`0` desativa). |
+| `CURSOR_REVIEWER_TIMEOUT_MS` | `600000` (10 min) | Tempo limite de execução da sessão do agente. |
+| `CURSOR_REVIEWER_REPO_ROOT` | — | Raiz do repositório alvo a revisar (default: detectado dinamicamente). |
+| `CURSOR_REVIEWER_REVIEW_SELF` | `false` | Se `true`, permite que o reviewer revise os próprios arquivos (apenas para desenvolvimento). |
 
 ---
 
-## Azure Pipelines — configuração e publicação
+## 💻 Uso e Parâmetros da CLI
 
-O projeto inclui um **template de pipeline pronto para uso**: [`azure-pipelines-cursor-code-review.yml`](azure-pipelines-cursor-code-review.yml). Copie-o para a **raiz do seu repositório** e ajuste as variáveis marcadas com `← CONFIGURE`.
-
-### Quick Start
+Para rodar localmente ou customizar a execução em scripts:
 
 ```bash
-cp azure-pipelines-cursor-code-review.yml /caminho/do/seu-repo/
+npm run review -- [argumentos]
 ```
 
-### Arquitetura na pipeline
+### Argumentos da CLI
 
-```
-PR → azure-pipelines-cursor-code-review.yml
-       ├─ checkout: self (fetchDepth: 0, persistCredentials: true)
-       ├─ NodeTool@0 (22.13.x)
-       ├─ Cache npm
-       ├─ npm ci
-       └─ npm run review (Cursor SDK)
-            ├─ git fetch origin (source + target) em CI
-            ├─ ADO: work items + threads existentes (SYSTEM_ACCESSTOKEN)
-            ├─ Agent: análise em 2 fases
-            └─ resumo → exit 0 | exit 1 (só em erro)
-```
-
-### Variáveis do template
-
-| Variável no YAML | Tipo | Descrição |
-|-------------------|------|-----------|
-| `group: vg-cursor-reviewer` | **Obrigatório** | Nome do variable group (Library) contendo `CURSOR_API_KEY` (secret). |
-| `CURSOR_REVIEWER_TARGET_BRANCH` | Opcional | Branch de comparação do diff (default: `refs/heads/master`). |
-| `CURSOR_REVIEWER_MODEL` | Opcional | Modelo LLM do agente (default: `composer-2.5`). |
-
-### Pré-requisitos no Azure DevOps
-
-1. **Variable group** (Pipelines → Library) com secret `CURSOR_API_KEY`.
-2. **Build Service** com permissões no repositório:
-   - Project Settings → Repositories → *seu repo* → Security
-   - `[Nome do Projeto] Build Service (...)` → **Contribute to pull requests** = Allow
-   - **View work items in this node** = Allow (Read)
-3. **OAuth token na pipeline:** Pipeline → Edit → ⋮ → Settings → **Allow scripts to access the OAuth token**.
-4. **Agent pool:** `ubuntu-latest` com Node.js **22.13+** (configurado automaticamente pelo template).
-
-### Registrar a pipeline
-
-1. Azure DevOps: **Pipelines** → **New pipeline** → selecione o repositório.
-2. Escolha **Existing Azure Pipelines YAML file**.
-3. Caminho: `/azure-pipelines-cursor-code-review.yml` (raiz do repo).
-4. Salve (nome sugerido: *Cursor Agent Code Review*).
-5. Na primeira execução, autorize o variable group se o ADO solicitar.
-
-> **Importante:** `trigger: none` — a pipeline **não** roda em push; só dispara via **Build Validation** em PR.
-
-### Build Validation (branch policy)
-
-1. **Project Settings** → **Repositories** → branch protegida (ex.: `master`) → **Branch policies**.
-2. **+ Add build policy** → **Build validation**.
-3. **Build pipeline:** selecione a pipeline criada acima.
-4. **Trigger:** *Automatic* (when pull request is created or updated).
-5. **Policy requirement:** *Optional* ou *Required* — a pipeline **não falha** por issues de review (exit 0); use *Required* se quiser garantir que o review **execute** em toda PR.
-
-### Variáveis ADO detectadas automaticamente
-
-| Variável | Uso |
-|----------|-----|
-| `SYSTEM_PULLREQUEST_SOURCEBRANCH` | Branch source da PR |
-| `SYSTEM_PULLREQUEST_TARGETBRANCH` | Branch target (fallback) |
-| `SYSTEM_PULLREQUEST_PULLREQUESTID` | ID da PR |
-| `SYSTEM_COLLECTIONURI` | URI da org ADO |
-| `SYSTEM_TEAMPROJECT` | Projeto |
-| `BUILD_REPOSITORY_NAME` | Repositório |
-| `SYSTEM_ACCESSTOKEN` | Token OAuth para publicação |
+*   `--dry-run` : Simula toda a execução, gerando o JSON de reviews no console e renderizando previews estruturados das threads, sem publicar nada na PR real.
+*   `--include-uncommitted` : Inclui alterações não commitadas (staged/unstaged/untracked) no escopo do diff vs HEAD.
+*   `--seed-test` : Roda a suite de validação local de detecção baseada no arquivo `SEED-ISSUES.md`.
+*   `--source-branch <REF>` : Sobrescreve localmente a branch de origem.
+*   `--target-branch <REF>` : Sobrescreve a branch de destino do diff (ex: `refs/heads/develop`).
+*   `--repo-root <CAMINHO>` : Define o diretório do repositório Git alvo (deve conter uma pasta `.git` válida).
+*   `--ado` ou `--gh` : Força a plataforma do provedor (Azure DevOps ou GitHub).
+*   `--org <NOME>`, `--project <NOME>`, `--repo <NOME>`, `--pr-id <ID>` : Passa o contexto do repositório e ID da Pull Request explicitamente para execução local.
 
 ---
 
-## Scripts npm
-
-| Script | Descrição |
-|--------|-----------|
-| `npm run review` | Executa o reviewer (`tsx --env-file=.env src/index.ts`) |
-| `npm run review:local` | Atalho dry-run (`--dry-run`) |
-| `npm run typecheck` | `tsc --noEmit` (rodado na pipeline) |
-| `npm test` | Typecheck + testes unitários (manifest, diff uncommitted, avaliador) |
-| `npm run test:seed` | E2E com agente: install → dry-run (`--include-uncommitted --seed-test`) → avalia → uninstall |
-| `npm run seed:install` | Copia fixtures para `src/` e `angular/` |
-| `npm run seed:uninstall` | Remove artefatos seed do workspace |
-| `npm run seed:verify-clean` | Falha se seeds ainda existirem (CI/pre-push) |
-| `npm run build` | Compila para `dist/` |
-| `npm start` | `node dist/index.js` (após build) |
-
----
-
-## Estrutura do projeto
+## 🔄 Fluxo de Execução
 
 ```
-./
-├── .env                    # Variáveis locais (gitignored)
-├── .env.example            # Template do .env
-├── package.json            # Scripts npm
-├── tsconfig.json
-├── docs/                   # Documentação complementar
-│   ├── flow-analysis.md    # Fluxo de análise e decisão
-│   ├── faq.md              # FAQ do processo de review
-│   ├── score_calc.md       # Score 0–10 e severidade
-│   └── two-phase-execution-model.md
-├── skills/                 # Prompts customizáveis
-│   ├── SYSTEM_PROMPT.md    # Contrato portável (read-only + JSON)
-│   └── CODE_REVIEW.md      # Roteamento para harness do projeto
-├── run-local.ps1           # Atalho PowerShell
-├── run-local.sh            # Atalho Bash
-├── README.md
-└── src/
-    ├── index.ts            # Orquestração + gate
-    ├── config.ts           # CLI args + env + padrões include/exclude
-    ├── project.ts          # Resolução de runnerRoot/repoRoot + layout
-    ├── logger.ts           # Logger estruturado
-    ├── agent/              # Runner, prompt, stream, model, log-prompt, token-usage
-    ├── ado/                # Cliente ADO, validação, publicação, round-state
-    ├── git/                # Diff, filtros, marcadores
-    ├── parser/             # Parse da resposta JSON do agente
-    ├── project/            # Rules map
-    └── seed/               # Fixtures de teste E2E
+[PR Aberta/Atualizada]
+        │
+        ▼
+[Preparar Workspace Git] ──► Filtra tipos de arquivos (.cs, .ts, .html)
+        │
+        ▼
+[Coletar Contexto do Provedor] ──► Work Items linkados + Threads de bot existentes
+        │
+        ▼
+[Agente Cursor (2 Fases)]
+   ├─ Fase 1: Triagem ──► Identifica linhas alteradas e elabora hipóteses de falhas
+   └─ Fase 2: Investigação ──► Prova/refuta hipóteses usando tools (read, grep, rules locales)
+        │
+        ▼
+[Gate de Validação] ──► Filtra reviews inválidos ou com score ≤ 5
+        │
+        ▼
+[Publicação na PR]
+   ├─ Azure DevOps: Normaliza cercas e publica threads + Estado da Rodada
+   └─ GitHub: Mantém ```suggestion e anexa resumo no GITHUB_STEP_SUMMARY
+        │
+        ▼
+[Fim da Execução] ──► Exit 0 (sucesso/issues encontradas) ou Exit 1 (falhas de sistema)
 ```
 
 ---
 
-## Execução Remota e Distribuição (Branch Release)
+## 🌐 Integração em CI/CD
 
-Para evitar clonar todo o código-fonte, dependências de desenvolvimento (como TypeScript, compilers) e ter que compilar o projeto em pipelines de outros repositórios, o `cursor-reviewer` suporta uma estratégia de distribuição baseada na branch `release`.
+### 1. Azure Pipelines (Azure DevOps)
 
-### 1. Como funciona a branch `release`
-A branch `release` contém apenas o código JavaScript transpilado pronto para execução (`dist/`), prompts (`skills/`), e os arquivos de manifesto do NPM (`package.json`, `package-lock.json`).
+Utilize o template pronto do projeto: [`azure-pipelines-cursor-code-review.yml`](azure-pipelines-cursor-code-review.yml). 
 
-Para gerar e publicar essa branch automaticamente a partir do código na `main`, use:
-```bash
-npm run build:release
+1. Copie o arquivo para a raiz do seu repositório Git alvo.
+2. Certifique-se de criar um **Variable Group** (ex: `vg-cursor-reviewer`) no Azure DevOps contendo a variável secreta `CURSOR_API_KEY`.
+3. Garanta que o **Build Service** da sua pipeline tenha permissão de **Contribute to pull requests** nas configurações do repositório.
+4. Habilite a opção **Allow scripts to access the OAuth token** nas configurações de execução do job da pipeline.
+5. Configure uma branch policy de **Build Validation** apontando para esta pipeline.
+
+### 2. GitHub Actions
+
+Para o GitHub Actions, você pode rodar a ferramenta diretamente baixando o script de execução remota, alimentado com as variáveis e permissões do repositório:
+
+```yaml
+name: Cursor Code Review
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.x
+
+      - name: Run Reviewer Agent
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/jpolvora/cursor-reviewer/main/run.sh | bash -s -- --gh --pr-id ${{ github.event.pull_request.number }}
 ```
-Esse script compila o projeto, cria um repositório git temporário contendo apenas os artefatos de runtime e faz um force push para a branch `release` do repositório remoto configurado.
-
-### 2. Executando o Reviewer remotamente a partir de outro projeto
-Projetos externos podem baixar e executar a última versão de release do `cursor-reviewer` sem precisar incluir seus arquivos no repositório local.
-
-O script `run.sh` na raiz deste repositório automatiza esse fluxo. Ele clona a branch `release` em um diretório temporário local, instala as dependências mínimas de runtime (`npm ci --omit=dev`), e executa o agente no contexto do projeto chamador.
-
-#### Exemplo em Pipeline (cURL + Bash)
-Basta baixar o script `run.sh` de release e executá-lo passando as opções da CLI (a variável `CURSOR_REVIEWER_REPO_URL` pode ser usada caso o repositório seja privado ou hospedado no Azure DevOps Git):
-
-```bash
-# Caso o repositório seja público no GitHub:
-curl -fsSL https://raw.githubusercontent.com/jpolvora/cursor-reviewer/main/run.sh | bash -s -- --dry-run
-
-# Customizando a URL do repositório (ex: repositório privado no Azure DevOps) e passando argumentos:
-export CURSOR_REVIEWER_REPO_URL="https://dev.azure.com/sua-organizacao/seu-projeto/_git/cursor-reviewer"
-curl -fsSL -H "Authorization: Bearer $SYSTEM_ACCESSTOKEN" "https://dev.azure.com/sua-organizacao/seu-projeto/_apis/git/repositories/cursor-reviewer/items?path=/run.sh&api-version=6.0" | bash -s -- --dry-run
-```
-
-O script repassará todos os argumentos (como `--dry-run`, `--org`, `--pr-id`, etc.) diretamente para o executável do `cursor-reviewer`.
 
 ---
 
-## Como rodar localmente
+## 🧑‍💻 Execução e Testes Locais
 
 ### Pré-requisitos
+*   Node.js instalado (versão **22.13+**).
+*   Chave `CURSOR_API_KEY` preenchida no arquivo `.env`.
 
-- Node.js 22.13+
-- `npm install`
-- `.env` com `CURSOR_API_KEY` válida
+### Comandos Úteis
 
-### Dry-run básico
-
-```bash
-npm run review -- --dry-run
-```
-
-### Testando com o Projeto Demo (crud-simples)
-
-O repositório inclui uma pasta de demonstração em `demo-project/crud-simples` contendo arquivos C# e TypeScript com erros de segurança e qualidade propositais (como SQL Injection, XSS, Memory Leaks e descarte inadequado de recursos).
-
-Para rodar a análise local contra esse projeto demo e validar que o bot detecta os problemas corretamente, execute:
-```bash
-npm run review -- --dry-run --include-uncommitted --repo-root demo-project/crud-simples
-```
-
-A flag `--include-uncommitted` é necessária para instruir o analisador Git a incluir arquivos que não estão commitados no branch (ou arquivos novos no working tree), e `--repo-root` aponta o escopo da análise especificamente para a pasta do projeto demo.
-
-### Opções CLI avançadas
-
-```bash
-# Branch específica
-npm run review -- --dry-run --source-branch refs/heads/nome-da-feature
-
-# Target customizado
-npm run review -- --dry-run --source-branch refs/heads/feat/x --target-branch refs/heads/develop
-
-# Incluir arquivos não commitados
-npm run review -- --dry-run --include-uncommitted
-
-# Validação seed
-npm run review -- --dry-run --seed-test
-
-# Gate completo com contexto ADO real
-npm run review -- --dry-run --source-branch refs/heads/sua-feature --org sua-org --project MeuProjeto --repo MeuRepo --pr-id 123
-```
-
-### Publicação real (local)
-
-Requer contexto ADO completo **e** token (sem `--dry-run`):
-
-```bash
-npm run review -- --source-branch refs/heads/sua-feature --org sua-org --project MeuProjeto --repo MeuRepo --pr-id 123
-```
+| Comando | Descrição |
+| :--- | :--- |
+| `npm install` | Instala todas as dependências locais. |
+| `npm run review:local` | Roda uma simulação (`--dry-run`) contra o diff da branch local. |
+| `npm test` | Executa validações de tipo (`tsc --noEmit`) e a suite de testes unitários. |
+| `npm run test:seed` | Roda o teste E2E: instala fixtures temporárias de defeito, executa a análise com agente em modo dry-run/seed e valida se todos os cenários de `SEED-ISSUES.md` foram detectados pelo agente. |
+| `npm run build` | Compila o projeto TypeScript para JavaScript na pasta `dist/`. |
 
 ---
 
-## Atalhos shell
+## 🗂️ Estrutura de Diretórios
 
-**Bash** (`run-local.sh`):
-```bash
-./run-local.sh                          # menu interativo
-./run-local.sh feat/minha-feature       # source explícita
-./run-local.sh feat/x refs/heads/develop  # source + target
-```
-
-**PowerShell** (`run-local.ps1`):
-```powershell
-.\run-local.ps1
-.\run-local.ps1 -SourceBranch feat/minha-feature
-.\run-local.ps1 -SourceBranch feat/x -TargetBranch refs/heads/develop
-```
-
----
-
-## Parâmetros CLI
-
-| Flag | Descrição |
-|------|-----------|
-| `--dry-run` | Sem publicação ADO; exit 0 salvo erro de execução |
-| `--verbose` / `--quiet` | Controle de logs |
-| `--source-branch REF` | Override da branch source |
-| `--target-branch REF` | Branch de comparação (default: `refs/heads/master`) |
-| `--org`, `--project`, `--repo`, `--pr-id` | Contexto Azure DevOps |
-| `--bot-tag TAG` | Tag do bot (default: `[Cursor Reviewer]`) |
-| `--model ID` | Modelo Cursor (default: `composer-2.5`) |
-| `--repo-root PATH` | Caminho para a raiz do repositório/projeto a ser analisado (default: `demo-project`) |
-| `--help` / `-h` | Ajuda |
-
----
-
-## Branches (source vs target)
-
-| Branch | Origem | Default |
-|--------|--------|---------|
-| **Source** | Branch da PR (`SYSTEM_PULLREQUEST_SOURCEBRANCH`) ou branch git atual / `--source-branch` | automático |
-| **Target** | Branch de comparação do diff | `refs/heads/master` |
-
-Configure a target via `.env`, CLI (`--target-branch`) ou variable group (`CURSOR_REVIEWER_TARGET_BRANCH`).
-
-Refs curtas (`master`, `develop`) são normalizadas para `refs/heads/...`.
-
----
-
-## Formato das threads
-
-**Issue (thread active):**
-
-```
-[Cursor Reviewer]
-
-🛑 **CRITICAL:** Descrição objetiva...
-
-**Correção sugerida:**
-
-```csharp
-// patch cirúrgico (fence por linguagem — não ```suggestion)
-```
-
-<details>
-<summary>🔍 Detalhes da Análise IA</summary>
-
-**Score:** 8/10 | **Ação dev:** fix-code
-
-**Análise:**
-Caminho X falha quando Y...
-
-**Caminhos analisados:** /src/Foo.cs, /test/FooTests.cs
-</details>
-```
-
-**Resumo positivo (thread closed):**
-
-```
-[Cursor Reviewer]
-<!-- review-summary -->
-
-Revisão concluída sem apontamentos. ...
-```
-
----
-
-## Resposta JSON do agente
-
-O parser prioriza o último bloco ` ```json ` válido; se não houver fence, varre os objetos `{...}` de nível superior (chaves balanceadas) e usa o último JSON válido com `reviews`. Em seguida normaliza os campos:
-
-```json
-{
-  "reviews": [
-    {
-      "fileName": "/src/Exemplo.cs",
-      "lineNumber": 42,
-      "severity": "critical",
-      "comment": "Descrição objetiva",
-      "score": 8,
-      "developerAction": "fix-code",
-      "analysis": "Por que o achado é real...",
-      "impactPaths": ["/src/Foo.cs"],
-      "suggestedFix": "```csharp\n// patch sugerido\n```"
-    }
-  ],
-  "resolvedThreads": [{ "threadId": 12345, "note": "Validação adicionada em Foo.cs" }],
-  "reviewSummary": ""
-}
-```
-
-Campos `score` (6–10), `developerAction` (`fix-code` ou `escalate`), `analysis` e `impactPaths` são **obrigatórios** em cada review publicável. `suggestedFix` é opcional (bloco de código por linguagem — ` ```csharp ` / ` ```ts ` / ` ```diff `; **não** ` ```suggestion `, que o Azure DevOps não aplica). Reviews com score ≤ 5 ou campos obrigatórios ausentes são descartados pelo gate em `src/ado/review-validation.ts`.
-
----
-
-## Seed issues (teste local)
-
-Fixtures temporárias em disco (`seed:install` → review com `--seed-test` → `seed:uninstall`). Consulte [`SEED-ISSUES.md`](SEED-ISSUES.md) para cenários, execução e checklist de limpeza.
-
----
-
-## Troubleshooting
-
-### `CURSOR_API_KEY é obrigatório`
-Confirme que `.env` existe e está preenchido. Use `npm run review` (carrega `--env-file=.env` automaticamente).
-
-### `Contexto ADO incompleto`
-Fora da pipeline, use `--dry-run` ou passe `--org`, `--project`, `--repo`, `--pr-id`.
-
-### `Token ADO ausente`
-Pipeline: habilite **Allow scripts to access the OAuth token**. Local: defina `AZURE_DEVOPS_EXT_PAT`.
-
-### Nenhum arquivo elegível para revisão
-O diff não contém `.cs`, `.ts` ou `.html` revisáveis, ou todos foram excluídos (proxies, bin/obj, `.md`, `.csproj`, `secret.txt`).
-
-### `Git error: fatal: ...`
-Atualize refs remotas: `git fetch origin master` (ou a target configurada).
-
-### JSON inválido na resposta do agente
-O parser tenta sanitizar aspas e quebras de linha. Se persistir, rode com `--verbose` e inspecione a saída bruta do agente.
-
----
-
-## Referências
-
-| Recurso | Caminho |
-|---------|---------|
-| Fluxo de análise e decisão | `docs/flow-analysis.md` |
-| FAQ | `docs/faq.md` |
-| Score e severidade | `docs/score_calc.md` |
-| System Prompt / contrato JSON | `skills/SYSTEM_PROMPT.md` |
-| Instruções de harness | `skills/CODE_REVIEW.md` |
-| Pipeline YAML | `azure-pipelines-cursor-code-review.yml` |
-| Cursor SDK Docs | https://cursor.com/docs/sdk/typescript |
+*   `src/index.ts` : Orquestrador principal do fluxo de revisão.
+*   `src/config.ts` : Tratamento de argumentos da CLI e resolução de parâmetros de ambiente.
+*   `src/provider/` : Abstrações e integrações de APIs de plataformas (`github.ts` e `azuredevops.ts`).
+*   `src/agent/` : Código de conexão com o Cursor SDK, geração do prompt e tokens.
+*   `src/ado/` : Regras de validação do gate, de rodadas, formatação de threads e helpers do ADO.
+*   `skills/` : Contratos de prompts estáticos do agente (`SYSTEM_PROMPT.md` e `CODE_REVIEW.md`).
+*   `demo-project/` : Projeto de demonstração contendo erros intencionais para fins de testes locais.

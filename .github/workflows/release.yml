@@ -4,11 +4,9 @@ on:
   push:
     branches:
       - main
-      - develop
   pull_request:
     branches:
       - main
-      - develop
 
 permissions:
   contents: write
@@ -40,7 +38,17 @@ jobs:
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          npx tsx src/index.ts --dry-run --gh --repo-root demo-project/crud-simples --source-branch "${{ github.head_ref || github.ref }}"
+          npx tsx src/index.ts --dry-run --gh --repo-root demo-project/crud-simples --source-branch "${{ github.head_ref || github.ref }}" --target-branch refs/heads/main
+        continue-on-error: true
+
+      - name: Self-Review PR to main
+        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main'
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CURSOR_REVIEWER_REVIEW_SELF: 'true'
+        run: |
+          npx tsx src/index.ts --gh --pr-id ${{ github.event.pull_request.number }} --source-branch "${{ github.head_ref }}" --target-branch "refs/heads/${{ github.event.pull_request.base.ref }}"
         continue-on-error: true
 
       - name: Bump Version
