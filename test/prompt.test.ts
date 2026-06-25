@@ -31,6 +31,7 @@ function minimalConfig(skillPath: string, systemPromptPath: string): ReviewerCon
     maxRounds: 3,
     stack: 'ABP/Angular',
     stackPromptPath: null,
+    stackSource: 'fallback',
   };
 }
 
