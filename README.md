@@ -33,7 +33,7 @@ Para detalhes arquiteturais e teóricos profundos, consulte a pasta [`docs/`](do
     *   **Azure DevOps:** Emite logging commands (`##vso[task.logissue]`) e anexa um resumo markdown rico na tela de build (`##vso[task.uploadsummary]`).
     *   **GitHub:** Anexa um resumo markdown completo da revisão diretamente na página do workflow via `GITHUB_STEP_SUMMARY`.
 *   **📦 Execução Remota via cURL:** Permite rodar o reviewer remotamente baixando apenas o script `run.sh` da branch `release`, dispensando o clone completo do repositório ou a presença de dependências de desenvolvimento.
-*   **🛠️ Instalador de Skills Interativo (`install-skills.sh`):** Menu interativo no terminal para selecionar, instalar e atualizar as diretrizes agênticas (`skills`) do Cursor no repositório de destino local de maneira simples e segura.
+*   **🛠️ Instalador de Skills Interativo (`install-skills.sh`):** Menu interativo no terminal (hospedado no repositório centralizado [workflow-skills](https://github.com/jpolvora/workflow-skills)) para selecionar, instalar e atualizar as diretrizes agênticas (`skills`) do Cursor no repositório de destino local de maneira simples e segura.
 
 ---
 
@@ -186,19 +186,19 @@ A arquitetura é modular e extensível. Para adicionar suporte a uma nova stack 
 
 ## 🛠️ Gerenciamento de Skills (`install-skills.sh`)
 
-O Cursor Reviewer disponibiliza uma coleção de diretrizes agênticas e comportamentais pré-configuradas (localizadas em `.agents/skills`). Para instalar ou atualizar essas diretrizes no seu repositório local de desenvolvimento onde você executa o Cursor:
+As diretrizes agênticas e comportamentais (skills) utilizadas pelo Cursor Reviewer foram migradas para o repositório dedicado [workflow-skills](https://github.com/jpolvora/workflow-skills). Para instalar ou atualizar essas diretrizes no seu repositório local de desenvolvimento onde você executa o Cursor Reviewer:
 
 1. Abra o terminal e navegue até a raiz do seu repositório local de destino.
 2. Execute o instalador diretamente via cURL:
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/jpolvora/cursor-reviewer/main/install-skills.sh | bash
+   curl -fsSL https://raw.githubusercontent.com/jpolvora/workflow-skills/main/install-skills.sh | bash
    ```
 3. O menu interativo no console será exibido:
    ```text
    ============================================================
-     Cursor Reviewer - Skill Installer
+     Workflow Skills - Skill Installer
    ============================================================
-   Source: /path/to/cursor-reviewer/.agents/skills
+   Source: /path/to/workflow-skills/.agents/skills
    Target: /path/to/my-project/.agents/skills
    ------------------------------------------------------------
    Toggle selection by entering the number.
@@ -225,10 +225,10 @@ Installing 'code-review'...
   Warning: Destination directory '.agents/skills/code-review' already exists.
   Overwrite? (y/n):
 ```
-Desta forma, quando novas skills forem adicionadas ao `cursor-reviewer` ou as existentes forem atualizadas, você poderá sincronizar os repositórios locais executando o script novamente.
+Desta forma, quando novas skills forem adicionadas ao `workflow-skills` ou as existentes forem atualizadas, você poderá sincronizar os repositórios locais executando o script novamente.
 
 > [!NOTE]
-> **Execução Descentralizada:** O script detecta automaticamente se está sendo executado fora do repositório original do `cursor-reviewer` (como na execução via cURL acima). Nesses casos, ele clona silenciosamente o repositório original do GitHub em um diretório temporário para obter as skills mais recentes e as instala ou atualiza localmente no seu projeto sem gerar colisões ou conflitos de caminhos.
+> **Execução Descentralizada:** O script detecta automaticamente se está sendo executado fora do repositório original do `workflow-skills` (como na execução via cURL acima). Nesses casos, ele clona silenciosamente o repositório original do GitHub em um diretório temporário para obter as skills mais recentes e as instala ou atualiza localmente no seu projeto sem gerar colisões ou conflitos de caminhos.
 
 ---
 

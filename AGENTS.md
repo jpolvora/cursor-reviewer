@@ -126,6 +126,6 @@ Antes de submeter alterações ou finalizar tarefas de desenvolvimento, você **
 *   **Sincronização de Docs:** Ao alterar o validador de gate (`review-validation.ts`), o controle de rodadas (`round-state.ts`), a lógica de diff, as stacks suportadas ou prompts do sistema, lembre-se de atualizar em conjunto este arquivo `AGENTS.md`, o `README.md` e as referências em `docs/`.
 
 ### 3.4 Gerenciamento e Atualização de Skills
-*   **Sincronização com o Usuário:** Ao criar novas skills ou atualizar as existentes na pasta `.agents/skills`, os usuários devem ser capazes de sincronizá-las em seus repositórios locais executando o script `install-skills.sh`.
-*   **Portabilidade do Script:** Sempre que modificar a estrutura de diretórios ou o script `install-skills.sh`, certifique-se de que o instalador continue funcionando de forma portável em sistemas operacionais e terminais diversos (Git Bash no Windows, WSL, Linux, macOS).
+*   **Repositório Dedicado:** A coleção de skills e o instalador interativo (`install-skills.sh`) foram movidos para o repositório dedicado [workflow-skills](https://github.com/jpolvora/workflow-skills).
+*   **Novas Skills e Correções:** Qualquer nova skill ou modificação de comportamento agêntico deve ser efetuada e versionada no repositório `workflow-skills`. Desenvolvedores devem sincronizar suas alterações lá e rodar o cURL do instalador para atualizar os repositórios locais de destino.
 
