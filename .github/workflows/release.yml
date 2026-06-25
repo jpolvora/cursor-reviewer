@@ -40,7 +40,7 @@ jobs:
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          npx tsx src/index.ts --dry-run --gh --repo-root demo-project/crud-simples --source-branch "${{ github.head_ref || github.ref }}"
+          npx tsx src/index.ts --dry-run --gh --repo-root demo-project/crud-simples --source-branch "${{ github.head_ref || github.ref }}" --target-branch refs/heads/main
         continue-on-error: true
 
       - name: Self-Review PR to main
