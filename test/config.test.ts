@@ -379,5 +379,19 @@ describe('loadConfig', () => {
         },
       );
     });
+
+    it('usa default ABP/Angular quando CURSOR_REVIEWER_STACK é macro ADO não expandida', () => {
+      withEnv(
+        {
+          CURSOR_API_KEY: 'cursor_test',
+          CURSOR_REVIEWER_STACK: '$(CURSOR_REVIEWER_STACK)',
+        },
+        () => {
+          const config = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature']);
+          assert.equal(config.stack, 'ABP/Angular');
+          assert.ok(config.includePatterns.includes('**/*.cs'));
+        },
+      );
+    });
   });
 });

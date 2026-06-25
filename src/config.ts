@@ -470,10 +470,8 @@ export function loadConfig(argv: string[] = process.argv.slice(2)): ReviewerConf
     );
   }
 
-  const stackName =
-    cli.stack ||
-    (seedTest ? 'ABP/Angular' : process.env.CURSOR_REVIEWER_STACK) ||
-    'ABP/Angular';
+  const stackEnv = resolveOptionalEnv(process.env.CURSOR_REVIEWER_STACK, 'ABP/Angular');
+  const stackName = cli.stack || (seedTest ? 'ABP/Angular' : stackEnv);
   const stackConfig = getStackConfig(stackName);
   if (!stackConfig) {
     throw new Error(
