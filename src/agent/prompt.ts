@@ -226,7 +226,9 @@ export function buildAgentPrompt(config: ReviewerConfig, context: PromptContext)
   const codeReviewSkillContent = loadFileContent(config.skillPath, 'Skill CODE_REVIEW.md');
 
   let stackPromptContent = '';
-  if (config.stackPromptPath && existsSync(config.stackPromptPath)) {
+  if (config.customPromptContent) {
+    stackPromptContent = config.customPromptContent;
+  } else if (config.stackPromptPath && existsSync(config.stackPromptPath)) {
     stackPromptContent = loadFileContent(config.stackPromptPath, `Stack Prompt (${config.stack})`);
   }
 

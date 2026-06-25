@@ -57,7 +57,9 @@ cp .env.example .env
 | `CURSOR_REVIEWER_TIMEOUT_MS` | `600000` (10 min) | Tempo limite de execução da sessão do agente. |
 | `CURSOR_REVIEWER_REPO_ROOT` | — | Raiz do repositório alvo a revisar (default: detectado dinamicamente). |
 | `CURSOR_REVIEWER_REVIEW_SELF` | `false` | Se `true`, permite que o reviewer revise os próprios arquivos (apenas para desenvolvimento). |
-| `CURSOR_REVIEWER_STACK` | `ABP/Angular` | Stack de desenvolvimento ativa (`ABP/Angular`, `PHP/Laravel`, `Next.js/React`, `TypeScript`). |
+| `CURSOR_REVIEWER_STACK` | `ABP/Angular` | Stack de desenvolvimento ativa (`ABP/Angular`, `PHP/Laravel`, `Next.js/React`, `TypeScript`, `Custom`). |
+| `CURSOR_REVIEWER_CUSTOM_PROMPT` | — | Caminho do arquivo ou string de prompt quando a stack é `Custom` (requerido para stack `Custom`). |
+| `CURSOR_REVIEWER_INCLUDE_PATTERNS` | — | Lista separada por vírgulas de padrões glob de inclusão (ex.: `**/*.py,**/*.go`). Sobrescreve o default da stack. |
 
 ---
 
@@ -79,7 +81,9 @@ npm run review -- [argumentos]
 *   `--repo-root <CAMINHO>` : Define o diretório do repositório Git alvo (deve conter uma pasta `.git` válida).
 *   `--ado` ou `--gh` : Força a plataforma do provedor (Azure DevOps ou GitHub).
 *   `--org <NOME>`, `--project <NOME>`, `--repo <NOME>`, `--pr-id <ID>` : Passa o contexto do repositório e ID da Pull Request explicitamente para execução local.
-*   `--stack <NOME>` ou `--stack=<NOME>` : Define a stack tecnológica ativa para o review.
+*   `--stack <NOME>` ou `--stack=<NOME>` : Define a stack tecnológica ativa para o review (`ABP/Angular`, `PHP/Laravel`, `Next.js/React`, `TypeScript`, `Custom`).
+*   `--custom-prompt <VAL>` : Caminho do arquivo ou string de prompt quando a stack é `Custom` (requerido para `--stack=Custom`).
+*   `--include-patterns <VAL>` : Lista separada por vírgulas de padrões glob de inclusão (ex.: `**/*.py,**/*.go`). Sobrescreve o padrão de arquivos a incluir no diff.
 
 ---
 
@@ -89,7 +93,7 @@ npm run review -- [argumentos]
 [PR Aberta/Atualizada]
         │
         ▼
-[Preparar Workspace Git] ──► Filtra tipos de arquivos de acordo com a stack (ex.: .cs, .ts, .html)
+[Preparar Workspace Git] ──► Filtra tipos de arquivos de acordo com a stack (ou --include-patterns)
         │
         ▼
 [Coletar Contexto do Provedor] ──► Work Items linkados + Threads de bot existentes
@@ -122,6 +126,39 @@ Você pode definir a stack de três formas (em ordem de prioridade):
 1.  **Parâmetro CLI:** `--stack=<nome-da-stack>` (ex.: `--stack=PHP/Laravel`).
 2.  **Variável de Ambiente:** `CURSOR_REVIEWER_STACK=<nome-da-stack>`.
 3.  **Autodetecção Automática:** Caso não seja especificada nenhuma das opções anteriores.
+
+### 🎨 Stack Customizada (`Custom`) e Prompt Customizado
+
+Se você precisa rodar o revisor em um projeto cuja tecnologia/stack não está pré-definida nas opções padrão, ou se deseja ter total controle das diretrizes de revisão da stack, você pode utilizar a stack `Custom`.
+
+Quando a stack `Custom` é selecionada, o Cursor Reviewer:
+1. **Requer** que você informe um prompt customizado via `--custom-prompt` (ou pela variável `CURSOR_REVIEWER_CUSTOM_PROMPT`).
+2. Adota, por padrão, a inclusão de todos os arquivos (`**/*`) no diff de revisão, a menos que seja definido o parâmetro `--include-patterns` (ou a variável `CURSOR_REVIEWER_INCLUDE_PATTERNS`).
+
+#### Exemplos de Linhas de Comando:
+
+* **Exemplo 1: Passando o caminho de um arquivo de prompt customizado (recomendado para CI):**
+  ```bash
+  npm run review -- --dry-run --stack=Custom --custom-prompt=./my-pipeline-prompt.md
+  ```
+
+* **Exemplo 2: Passando o prompt diretamente como string:**
+  ```bash
+  npm run review -- --dry-run --stack=Custom --custom-prompt="Evite o uso de variáveis globais e garanta tipagem estrita de retorno em todas as funções públicas."
+  ```
+
+* **Exemplo 3: Limitando os arquivos analisados pela stack customizada (por exemplo, Python e Go):**
+  ```bash
+  npm run review -- --dry-run --stack=Custom --custom-prompt=./custom-rules.md --include-patterns="**/*.py,**/*.go"
+  ```
+
+* **Exemplo 4: Utilizando variáveis de ambiente (comum em arquivos de Pipeline/GitHub Actions):**
+  ```bash
+  export CURSOR_REVIEWER_STACK="Custom"
+  export CURSOR_REVIEWER_CUSTOM_PROMPT="./config/reviewer-prompt.md"
+  export CURSOR_REVIEWER_INCLUDE_PATTERNS="**/*.rs,**/*.toml"
+  npm run review -- --dry-run
+  ```
 
 ### 🔍 Estratégia de Autodetecção
 Quando ativada, a estratégia de autodetecção analisa a raiz do repositório (`repoRoot`) e infere a tecnologia baseada nas seguintes regras:

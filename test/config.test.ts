@@ -372,23 +372,20 @@ describe('loadConfig', () => {
       );
     });
 
-    it('falha-rápido se uma stack inválida for passada', () => {
+    it('cai para o fallback se uma stack inválida for passada', () => {
       withEnv(
         {
           CURSOR_API_KEY: 'cursor_test',
         },
         () => {
-          assert.throws(
-            () =>
-              loadConfig([
-                '--dry-run',
-                '--source-branch',
-                'refs/heads/feature',
-                '--stack',
-                'invalid-tech-stack',
-              ]),
-            /Stack "invalid-tech-stack" não é suportada/,
-          );
+          const config = loadConfig([
+            '--dry-run',
+            '--source-branch',
+            'refs/heads/feature',
+            '--stack',
+            'invalid-tech-stack',
+          ]);
+          assert.equal(config.stack, 'TypeScript');
         },
       );
     });
