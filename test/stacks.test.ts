@@ -20,6 +20,12 @@ describe('stacks config', () => {
     assert.ok(nextjs);
     assert.equal(nextjs.name, 'Next.js/React');
     assert.ok(nextjs.includePatterns.includes('**/*.tsx'));
+
+    const ts = STACKS['typescript'];
+    assert.ok(ts);
+    assert.equal(ts.name, 'TypeScript');
+    assert.ok(ts.includePatterns.includes('**/*.ts'));
+    assert.ok(ts.includePatterns.includes('**/*.json'));
   });
 
   it('normaliza e detecta stacks corretamente via getStackConfig', () => {
@@ -39,6 +45,11 @@ describe('stacks config', () => {
     assert.equal(getStackConfig('nextjs-react')?.name, 'Next.js/React');
     assert.equal(getStackConfig('nextjs')?.name, 'Next.js/React');
     assert.equal(getStackConfig('react')?.name, 'Next.js/React');
+
+    // TypeScript cases
+    assert.equal(getStackConfig('TypeScript')?.name, 'TypeScript');
+    assert.equal(getStackConfig('typescript')?.name, 'TypeScript');
+    assert.equal(getStackConfig('ts')?.name, 'TypeScript');
 
     // Invalid case
     assert.equal(getStackConfig('invalid-stack'), undefined);

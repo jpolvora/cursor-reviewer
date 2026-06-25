@@ -23,6 +23,7 @@ Para detalhes arquiteturais e teóricos profundos, consulte a pasta [`docs/`](do
 ## 🚀 Recursos Principais e Novidades
 
 *   **🔌 Integração Multiprovedor (Azure DevOps & GitHub):** Suporte nativo a ambas as plataformas. O provedor correto é inferido automaticamente pelas variáveis de CI ou pode ser forçado pelas flags CLI (`--ado` ou `--gh`).
+*   **🗂️ Seleção de Stacks Tecnológicas:** Permite executar a revisão focando nas extensões de arquivos e com recomendações de boas práticas específicas da stack selecionada. O padrão é `ABP/Angular` se não informado. Outras stacks incluem `PHP/Laravel`, `Next.js/React` e `TypeScript`.
 *   **📝 Sugestões Interativas:** 
     *   No **GitHub**, as correções sugeridas utilizam o formato nativo ` ```suggestion `, permitindo que o desenvolvedor aplique a correção na PR com um único clique.
     *   No **Azure DevOps**, que não suporta o recurso de sugestão interativa, as cercas são normalizadas automaticamente para blocos de código neutros (` ```csharp `, ` ```ts `, etc.), garantindo uma formatação limpa.
@@ -55,6 +56,7 @@ cp .env.example .env
 | `CURSOR_REVIEWER_TIMEOUT_MS` | `600000` (10 min) | Tempo limite de execução da sessão do agente. |
 | `CURSOR_REVIEWER_REPO_ROOT` | — | Raiz do repositório alvo a revisar (default: detectado dinamicamente). |
 | `CURSOR_REVIEWER_REVIEW_SELF` | `false` | Se `true`, permite que o reviewer revise os próprios arquivos (apenas para desenvolvimento). |
+| `CURSOR_REVIEWER_STACK` | `ABP/Angular` | Stack de desenvolvimento ativa (`ABP/Angular`, `PHP/Laravel`, `Next.js/React`, `TypeScript`). |
 
 ---
 
@@ -76,6 +78,7 @@ npm run review -- [argumentos]
 *   `--repo-root <CAMINHO>` : Define o diretório do repositório Git alvo (deve conter uma pasta `.git` válida).
 *   `--ado` ou `--gh` : Força a plataforma do provedor (Azure DevOps ou GitHub).
 *   `--org <NOME>`, `--project <NOME>`, `--repo <NOME>`, `--pr-id <ID>` : Passa o contexto do repositório e ID da Pull Request explicitamente para execução local.
+*   `--stack <NOME>` ou `--stack=<NOME>` : Define a stack tecnológica ativa para o review.
 
 ---
 
@@ -85,7 +88,7 @@ npm run review -- [argumentos]
 [PR Aberta/Atualizada]
         │
         ▼
-[Preparar Workspace Git] ──► Filtra tipos de arquivos (.cs, .ts, .html)
+[Preparar Workspace Git] ──► Filtra tipos de arquivos de acordo com a stack (ex.: .cs, .ts, .html)
         │
         ▼
 [Coletar Contexto do Provedor] ──► Work Items linkados + Threads de bot existentes
@@ -184,5 +187,5 @@ jobs:
 *   `src/provider/` : Abstrações e integrações de APIs de plataformas (`github.ts` e `azuredevops.ts`).
 *   `src/agent/` : Código de conexão com o Cursor SDK, geração do prompt e tokens.
 *   `src/ado/` : Regras de validação do gate, de rodadas, formatação de threads e helpers do ADO.
-*   `skills/` : Contratos de prompts estáticos do agente (`SYSTEM_PROMPT.md` e `CODE_REVIEW.md`).
+*   `skills/` : Contratos de prompts estáticos do agente (`SYSTEM_PROMPT.md` e `CODE_REVIEW.md`) e subpasta `skills/stacks/` contendo os prompts complementares com as recomendações de cada stack.
 *   `demo-project/` : Projeto de demonstração contendo erros intencionais para fins de testes locais.

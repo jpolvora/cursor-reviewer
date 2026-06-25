@@ -58,6 +58,11 @@ export const STACKS: Record<string, StackConfig> = {
     ],
     promptFileName: 'nextjs-react.md',
   },
+  'typescript': {
+    name: 'TypeScript',
+    includePatterns: ['**/*.ts', '**/*.json', '*.ts', '*.json'],
+    promptFileName: 'typescript.md',
+  },
 };
 
 export function getStackConfig(stackName: string): StackConfig | undefined {
@@ -70,6 +75,9 @@ export function getStackConfig(stackName: string): StackConfig | undefined {
   }
   if (normalized === 'nextjs/react' || normalized === 'nextjs-react' || normalized === 'nextjs' || normalized === 'react' || normalized === 'next.js/react' || normalized === 'next.js-react') {
     return STACKS['nextjs/react'];
+  }
+  if (normalized === 'typescript' || normalized === 'ts') {
+    return STACKS['typescript'];
   }
   return undefined;
 }
