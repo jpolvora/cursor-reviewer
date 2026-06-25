@@ -14,6 +14,7 @@ const ISOLATED_CI_ENV: Record<string, undefined> = {
   SYSTEM_PULLREQUEST_PULLREQUESTID: undefined,
   SYSTEM_ACCESSTOKEN: undefined,
   AZURE_DEVOPS_EXT_PAT: undefined,
+  CURSOR_REVIEWER_STACK: undefined,
 };
 
 function withEnv(env: Record<string, string | undefined>, action: () => void): void {
@@ -291,5 +292,92 @@ describe('loadConfig', () => {
         assert.equal(config.provider, 'github');
       },
     );
+  });
+
+  describe('stack selection', () => {
+    it('inicia com a stack padrão ABP/Angular se nenhuma for informada', () => {
+      withEnv(
+        {
+          CURSOR_API_KEY: 'cursor_test',
+        },
+        () => {
+          const config = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature']);
+          assert.equal(config.stack, 'ABP/Angular');
+          assert.ok(config.includePatterns.includes('**/*.cs'));
+        },
+      );
+    });
+
+    it('permite selecionar stack via variável de ambiente', () => {
+      withEnv(
+        {
+          CURSOR_API_KEY: 'cursor_test',
+          CURSOR_REVIEWER_STACK: 'PHP/Laravel',
+        },
+        () => {
+          const config = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature']);
+          assert.equal(config.stack, 'PHP/Laravel');
+          assert.ok(config.includePatterns.includes('**/*.php'));
+        },
+      );
+    });
+
+    it('permite selecionar stack via argumento CLI --stack <nome>', () => {
+      withEnv(
+        {
+          CURSOR_API_KEY: 'cursor_test',
+        },
+        () => {
+          const config = loadConfig([
+            '--dry-run',
+            '--source-branch',
+            'refs/heads/feature',
+            '--stack',
+            'Next.js/React',
+          ]);
+          assert.equal(config.stack, 'Next.js/React');
+          assert.ok(config.includePatterns.includes('**/*.tsx'));
+        },
+      );
+    });
+
+    it('permite selecionar stack via argumento CLI --stack=<nome>', () => {
+      withEnv(
+        {
+          CURSOR_API_KEY: 'cursor_test',
+        },
+        () => {
+          const config = loadConfig([
+            '--dry-run',
+            '--source-branch',
+            'refs/heads/feature',
+            '--stack=PHP/Laravel',
+          ]);
+          assert.equal(config.stack, 'PHP/Laravel');
+          assert.ok(config.includePatterns.includes('**/*.php'));
+        },
+      );
+    });
+
+    it('falha-rápido se uma stack inválida for passada', () => {
+      withEnv(
+        {
+          CURSOR_API_KEY: 'cursor_test',
+        },
+        () => {
+          assert.throws(
+            () =>
+              loadConfig([
+                '--dry-run',
+                '--source-branch',
+                'refs/heads/feature',
+                '--stack',
+                'invalid-tech-stack',
+              ]),
+            /Stack "invalid-tech-stack" não é suportada/,
+          );
+        },
+      );
+    });
   });
 });

@@ -6,6 +6,74 @@ import {
 import { detectSourceBranchRef } from './git/diff.js';
 import { ProjectValidationError, resolveProject } from './project.js';
 
+export interface StackConfig {
+  name: string;
+  includePatterns: string[];
+  promptFileName: string;
+}
+
+export const STACKS: Record<string, StackConfig> = {
+  'abp/angular': {
+    name: 'ABP/Angular',
+    includePatterns: ['**/*.cs', '**/*.ts', '**/*.html', '*.cs', '*.ts', '*.html'],
+    promptFileName: 'abp-angular.md',
+  },
+  'php/laravel': {
+    name: 'PHP/Laravel',
+    includePatterns: [
+      '**/*.php',
+      '**/*.js',
+      '**/*.ts',
+      '**/*.vue',
+      '**/*.html',
+      '**/*.css',
+      '**/*.json',
+      '*.php',
+      '*.js',
+      '*.ts',
+      '*.vue',
+      '*.html',
+      '*.css',
+      '*.json',
+    ],
+    promptFileName: 'php-laravel.md',
+  },
+  'nextjs/react': {
+    name: 'Next.js/React',
+    includePatterns: [
+      '**/*.ts',
+      '**/*.tsx',
+      '**/*.js',
+      '**/*.jsx',
+      '**/*.html',
+      '**/*.css',
+      '**/*.json',
+      '*.ts',
+      '*.tsx',
+      '*.js',
+      '*.jsx',
+      '*.html',
+      '*.css',
+      '*.json',
+    ],
+    promptFileName: 'nextjs-react.md',
+  },
+};
+
+export function getStackConfig(stackName: string): StackConfig | undefined {
+  const normalized = stackName.trim().toLowerCase();
+  if (normalized === 'abp/angular' || normalized === 'abp-angular' || normalized === 'abpangular') {
+    return STACKS['abp/angular'];
+  }
+  if (normalized === 'php/laravel' || normalized === 'php-laravel' || normalized === 'phplaravel') {
+    return STACKS['php/laravel'];
+  }
+  if (normalized === 'nextjs/react' || normalized === 'nextjs-react' || normalized === 'nextjs' || normalized === 'react' || normalized === 'next.js/react' || normalized === 'next.js-react') {
+    return STACKS['nextjs/react'];
+  }
+  return undefined;
+}
+
 export interface ReviewerConfig {
   repoRoot: string;
   cursorApiKey: string;
@@ -40,6 +108,8 @@ export interface ReviewerConfig {
 
   /** Orçamento de rodadas fix→review antes de escalar para revisão humana (0 desabilita). */
   maxRounds: number;
+  stack: string;
+  stackPromptPath: string | null;
 }
 
 export interface CliArgs {
@@ -59,6 +129,7 @@ export interface CliArgs {
   help?: boolean;
   ado?: boolean;
   gh?: boolean;
+  stack?: string;
 }
 
 const DEFAULT_INCLUDE = ['**/*.cs', '**/*.ts', '**/*.html', '*.cs', '*.ts', '*.html'];
@@ -130,6 +201,11 @@ function parseArgs(argv: string[]): CliArgs {
     const arg = argv[i];
     const next = argv[i + 1];
 
+    if (arg.startsWith('--stack=')) {
+      args.stack = arg.slice(8);
+      continue;
+    }
+
     switch (arg) {
       case '--help':
       case '-h':
@@ -191,6 +267,10 @@ function parseArgs(argv: string[]): CliArgs {
         break;
       case '--gh':
         args.gh = true;
+        break;
+      case '--stack':
+        args.stack = next;
+        i++;
         break;
       default:
         break;
@@ -390,6 +470,24 @@ export function loadConfig(argv: string[] = process.argv.slice(2)): ReviewerConf
     );
   }
 
+  const stackName =
+    cli.stack ||
+    (seedTest ? 'ABP/Angular' : process.env.CURSOR_REVIEWER_STACK) ||
+    'ABP/Angular';
+  const stackConfig = getStackConfig(stackName);
+  if (!stackConfig) {
+    throw new Error(
+      `Stack "${stackName}" não é suportada. Stacks disponíveis: ABP/Angular, PHP/Laravel, Next.js/React`,
+    );
+  }
+
+  const stackPromptPath = resolve(
+    resolvedProject.runnerRoot,
+    'skills',
+    'stacks',
+    stackConfig.promptFileName,
+  );
+
   return {
     repoRoot,
     cursorApiKey,
@@ -410,13 +508,15 @@ export function loadConfig(argv: string[] = process.argv.slice(2)): ReviewerConf
     pullRequestId,
     pullRequestIdSource,
     adoAccessToken,
-    includePatterns: DEFAULT_INCLUDE,
+    includePatterns: stackConfig.includePatterns,
     excludePatterns: resolveExcludePatterns(repoRoot, resolvedProject.runnerRoot),
     skillPath: resolvedProject.codeReviewSkillPath,
     systemPromptPath: resolvedProject.systemPromptPath,
     projectName: resolvedProject.projectName,
     version: resolvedProject.version,
     maxRounds: parseNonNegativeInt(process.env.CURSOR_REVIEWER_MAX_ROUNDS, DEFAULT_MAX_ROUNDS),
+    stack: stackConfig.name,
+    stackPromptPath,
   };
 }
 
@@ -441,6 +541,7 @@ Opções:
   --model ID             Modelo Cursor (default canônico: composer-2.5)
   --repo-root PATH       Raiz do repositório (default: detectado via scripts/cursor-reviewer)
   --ado / --gh           Define a estratégia de execução/plataforma (Azure DevOps ou GitHub)
+  --stack NAME           Stack tecnológica para o review (ABP/Angular, PHP/Laravel, Next.js/React. Default: ABP/Angular)
 
 Pré-requisitos do projeto alvo (obrigatórios — o script encerra se ausentes):
   skills/CODE_REVIEW.md
