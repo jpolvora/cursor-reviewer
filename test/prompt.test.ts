@@ -29,6 +29,8 @@ function minimalConfig(skillPath: string, systemPromptPath: string): ReviewerCon
     systemPromptPath,
     projectName: 'TestProject',
     maxRounds: 3,
+    stack: 'ABP/Angular',
+    stackPromptPath: null,
   };
 }
 
@@ -126,5 +128,23 @@ describe('buildAgentPrompt', () => {
     assert.ok(prompt.includes('+added line'));
     assert.ok(prompt.includes('Equipamentos Florestais'));
     assert.ok(prompt.includes('Use o **diff pré-carregado**'));
+  });
+
+  it('inclui metadados da stack e arquivo de recomendação no prompt', () => {
+    const runnerRoot = process.cwd().includes('cursor-reviewer')
+      ? process.cwd()
+      : `${process.cwd()}/scripts/cursor-reviewer`;
+
+    const config = {
+      ...minimalConfig(`${runnerRoot}/skills/CODE_REVIEW.md`, `${runnerRoot}/skills/SYSTEM_PROMPT.md`),
+      stack: 'PHP/Laravel',
+      stackPromptPath: `${runnerRoot}/skills/stacks/php-laravel.md`,
+    };
+
+    const prompt = buildAgentPrompt(config, promptContext);
+
+    assert.ok(prompt.includes('- **Stack:** `PHP/Laravel`'));
+    assert.ok(prompt.includes('# Recomendações Específicas da Stack (PHP/Laravel)'));
+    assert.ok(prompt.includes('Problema de Query N+1'));
   });
 });

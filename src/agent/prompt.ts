@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import type { ReviewerConfig } from '../config.js';
 import type { DiffPromptSection } from '../git/diff-prompt.js';
 import type { LocalReviewGitContext } from '../git/diff.js';
@@ -100,6 +100,7 @@ function buildExecutionContext(config: ReviewerConfig, context: PromptContext): 
   lines.push(
     `- **Branch:** \`${sourceRef}\` → \`${targetRef}\``,
     `- **Diff range:** \`${diffScopeLabel}\``,
+    `- **Stack:** \`${config.stack}\``,
     `- **Arquivos elegíveis:** ${context.diffStats.fileCount}`,
     context.diffStats.files.length > 0
       ? `- **Lista:** ${context.diffStats.files.slice(0, 30).join(', ')}${context.diffStats.files.length > 30 ? '...' : ''}`
@@ -224,14 +225,33 @@ export function buildAgentPrompt(config: ReviewerConfig, context: PromptContext)
   const systemPromptContent = loadFileContent(config.systemPromptPath, 'System Prompt');
   const codeReviewSkillContent = loadFileContent(config.skillPath, 'Skill CODE_REVIEW.md');
 
+  let stackPromptContent = '';
+  if (config.stackPromptPath && existsSync(config.stackPromptPath)) {
+    stackPromptContent = loadFileContent(config.stackPromptPath, `Stack Prompt (${config.stack})`);
+  }
+
   const sections: string[] = [
     systemPromptContent,
     '',
     ...buildSkillSection(codeReviewSkillContent),
     '',
+  ];
+
+  if (stackPromptContent) {
+    sections.push(
+      '---',
+      '',
+      `# Recomendações Específicas da Stack (${config.stack})`,
+      '',
+      stackPromptContent,
+      '',
+    );
+  }
+
+  sections.push(
     ...buildExecutionContext(config, context),
     ...buildDiffSection(context.diffSection),
-  ];
+  );
 
   if (context.prDescriptionContext) {
     sections.push('', context.prDescriptionContext);

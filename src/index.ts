@@ -60,6 +60,7 @@ async function main(): Promise<void> {
   logger.section(`${config.projectName} Cursor Reviewer v${config.version}`);
   logger.info(`Modo: ${config.dryRun ? 'DRY-RUN' : 'PIPELINE'}`);
   logger.info(`Model: ${config.model}`);
+  logger.info(`Stack: ${config.stack}`);
   logger.info(`Verbosity: ${config.verbose ? 'VERBOSE' : 'QUIET'}`);
   logger.info(`Source: ${config.sourceBranch} → Target: ${config.targetBranch}`);
   logger.info(`Repository Root: ${config.repoRoot}`);
