@@ -190,6 +190,9 @@ Installing 'code-review'...
 ```
 Desta forma, quando novas skills forem adicionadas ao `cursor-reviewer` ou as existentes forem atualizadas, você poderá sincronizar os repositórios locais executando o script novamente.
 
+> [!NOTE]
+> **Execução Descentralizada:** O script detecta automaticamente se está sendo executado fora do repositório original do `cursor-reviewer` (como na execução via cURL acima). Nesses casos, ele clona silenciosamente o repositório original do GitHub em um diretório temporário para obter as skills mais recentes e as instala ou atualiza localmente no seu projeto sem gerar colisões ou conflitos de caminhos.
+
 ---
 
 ## 🌐 Integração em CI/CD
