@@ -112,6 +112,40 @@ npm run review -- [argumentos]
 
 ---
 
+## 🗂️ Seleção e Autodetecção de Stacks
+
+O Cursor Reviewer permite focar a análise em arquivos elegíveis específicos e injetar recomendações de boas práticas direcionadas para cada ecossistema tecnológico.
+
+### ⚙️ Como Definir a Stack
+Você pode definir a stack de três formas (em ordem de prioridade):
+1.  **Parâmetro CLI:** `--stack=<nome-da-stack>` (ex.: `--stack=PHP/Laravel`).
+2.  **Variável de Ambiente:** `CURSOR_REVIEWER_STACK=<nome-da-stack>`.
+3.  **Autodetecção Automática:** Caso não seja especificada nenhuma das opções anteriores.
+
+### 🔍 Estratégia de Autodetecção
+Quando ativada, a estratégia de autodetecção analisa a raiz do repositório (`repoRoot`) e infere a tecnologia baseada nas seguintes regras:
+*   **PHP/Laravel:** Identificado se houver o arquivo `artisan` ou `composer.json` na raiz.
+*   **Next.js/React:** Identificado por arquivos como `next.config.js` / `.mjs` / `.ts` ou pelo pacote `next` nas dependências do `package.json`.
+*   **ABP/Angular:** Identificado por arquivos `angular.json`, diretório `angular/` ou pelo pacote `@angular/core`.
+*   **C#/.NET (ABP/Angular):** Identificado por soluções `.sln` ou arquivos `.csproj` na raiz.
+*   **TypeScript:** Identificado por `tsconfig.json` ou pelos pacotes `typescript` / `tsx`.
+
+> [!TIP]
+> **Ordem de Precedência na Detecção:** Arquivos de solução C# `.sln` e `.csproj` são checados *antes* de `tsconfig.json` genéricos. Isso garante que backends ABP/.NET Core que possuam um `tsconfig` na raiz para fins de tooling não sejam erroneamente detectados como TypeScript puro.
+
+### 🔄 Fallback e Segurança
+*   **Fallback Padrão:** Se nenhuma tecnologia for autodetectada ou especificada, o runner adota a stack `ABP/Angular` (mantendo 100% de compatibilidade com o comportamento original).
+*   **Tratamento de Macros ADO:** Caso a variável de ambiente `CURSOR_REVIEWER_STACK` contiver uma macro não expandida do Azure DevOps (como `$(CURSOR_REVIEWER_STACK)`), ela será resolvida automaticamente para a stack padrão.
+*   **Seed Tests:** Ao rodar a suíte local com a flag `--seed-test`, o runner força a execução na stack `ABP/Angular` para garantir a detecção correta das fixtures C#/.NET.
+
+### 🔌 Como Estender e Adicionar Nova Stack
+A arquitetura é modular e extensível. Para adicionar suporte a uma nova stack tecnológica:
+1.  **Registrar no Config:** Abra `src/config.ts` e adicione a nova definição ao dicionário `STACKS`, mapeando o nome amigável, os padrões de arquivos do diff (`includePatterns`) e o nome do arquivo de prompt (ex.: `meu-framework.md`).
+2.  **Mapear o Alias:** No mesmo arquivo, atualize a função `getStackConfig` com as chaves e aliases de normalização da sua stack.
+3.  **Criar o Prompt:** Crie o arquivo markdown correspondente em `skills/stacks/meu-framework.md` detalhando as instruções específicas e preocupações comuns de revisão de código para aquela tecnologia.
+
+---
+
 ## 🌐 Integração em CI/CD
 
 ### 1. Azure Pipelines (Azure DevOps)
