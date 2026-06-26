@@ -129,7 +129,7 @@ function buildSeedTestSection(): string[] {
   ];
 }
 
-function buildTwoPhaseWorkflow(context: PromptContext): string[] {
+function buildTwoPhaseWorkflow(context: PromptContext, scoreMin: number): string[] {
   const diffRange = context.gitContext.diffRange;
   const hasEmbeddedDiff = context.diffSection.mode !== 'empty';
   const diffStep = hasEmbeddedDiff
@@ -194,7 +194,7 @@ function buildTwoPhaseWorkflow(context: PromptContext): string[] {
     '#### 2.4 — Classificar e filtrar',
     '',
     '1. Atribua `severity` e `score` conforme tabelas do **System Prompt**.',
-    '2. Aplique o filtro de publicação: score ≤ 5 → omita; só `fix-code` ou `escalate`.',
+    `2. Aplique o filtro de publicação: score < ${scoreMin} → omita; só \`fix-code\` ou \`escalate\`.`,
     '3. Combine múltiplos achados na **mesma linha** em um único review.',
     '4. Preencha `comment` (amigável, sem código); `suggestedFix` só se houver patch cirúrgico claro (senão `""`).',
     '',
@@ -263,7 +263,7 @@ export function buildAgentPrompt(config: ReviewerConfig, context: PromptContext)
     sections.push(...buildSeedTestSection());
   }
 
-  sections.push(...buildTwoPhaseWorkflow(context), ...buildVerdictAndAdoPolicy());
+  sections.push(...buildTwoPhaseWorkflow(context, config.scoreMin), ...buildVerdictAndAdoPolicy());
 
   if (context.workItemContext) {
     sections.push('', context.workItemContext);

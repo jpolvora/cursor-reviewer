@@ -70,7 +70,7 @@ Achados que violarem qualquer regra abaixo são descartados automaticamente:
 
 | Campo | Regra |
 |---|---|
-| `score` | Inteiro entre **6–10**. Score ≤ 5 é descartado. |
+| `score` | Inteiro entre **SCORE_MIN–10** (default `SCORE_MIN=6`). Score abaixo do mínimo é descartado. Omitir `SCORE_MIN` / `--score-min` preserva o limiar 6. |
 | `fileName` + `lineNumber` | Devem apontar para linhas alteradas no diff (lineNumber > 0). |
 | `severity` | `critical` (score 9–10) · `warning` (6–8) · `suggestion` (6–7) |
 | `developerAction` | `fix-code` ou `escalate`. Nunca `resolve-comment` em reviews novos. |
