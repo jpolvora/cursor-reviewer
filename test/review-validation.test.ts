@@ -27,10 +27,15 @@ describe('isPublishableReview', () => {
     assert.equal(isPublishableReview(validReview({ score: MIN_PUBLISHABLE_SCORE })), true);
   });
 
-  it('rejeita score ausente, ≤ 5 ou fora do intervalo', () => {
+  it('rejeita score ausente, abaixo do mínimo ou fora do intervalo', () => {
     assert.equal(isPublishableReview(validReview({ score: undefined })), false);
     assert.equal(isPublishableReview(validReview({ score: 5 })), false);
     assert.equal(isPublishableReview(validReview({ score: 11 })), false);
+  });
+
+  it('aceita score >= scoreMin customizado', () => {
+    assert.equal(isPublishableReview(validReview({ score: 4 }), 4), true);
+    assert.equal(isPublishableReview(validReview({ score: 3 }), 4), false);
   });
 
   it('rejeita campos obrigatórios ausentes', () => {
@@ -63,5 +68,14 @@ describe('filterPublishableReviews', () => {
     assert.equal(filtered.length, 2);
     assert.equal(filtered[0].fileName, '/src/Foo.cs');
     assert.equal(filtered[1].fileName, '/src/Other.cs');
+  });
+
+  it('respeita scoreMin customizado', () => {
+    const filtered = filterPublishableReviews(
+      [validReview({ score: 4 }), validReview({ score: 3, fileName: '/src/Low.cs' })],
+      4,
+    );
+    assert.equal(filtered.length, 1);
+    assert.equal(filtered[0].score, 4);
   });
 });

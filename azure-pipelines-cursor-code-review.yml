@@ -22,6 +22,7 @@
 # Variáveis opcionais (variable group ou pipeline variables):
 #   - CURSOR_REVIEWER_TARGET_BRANCH  (default: refs/heads/master)
 #   - CURSOR_REVIEWER_MODEL          (default: composer-2.5)
+#   - SCORE_MIN                      (default: 6 — omitir mantém pipelines existentes)
 
 trigger: none   # Dispara apenas via Build Validation em PR
 

@@ -1,6 +1,10 @@
 import { AdoClient } from './client.js';
 import { formatCommentForPosting } from './format-thread.js';
-import { filterPublishableReviews, isPublishableReview } from './review-validation.js';
+import {
+  DEFAULT_SCORE_MIN,
+  filterPublishableReviews,
+  isPublishableReview,
+} from './review-validation.js';
 import { normalizeFilePath, reviewDedupKey as pathLineDedupKey } from './utils.js';
 import { RESOLUTION_MARKER, REVIEW_SUMMARY_MARKER } from '../git/markers.js';
 import { testReviewSummaryAlreadyPosted } from './review-context.js';
@@ -20,7 +24,10 @@ function reviewDedupKey(review: Pick<CodeReviewItem, 'fileName' | 'lineNumber'>)
   return pathLineDedupKey(review.fileName, review.lineNumber);
 }
 
-export function parseCodeReviewResponse(raw: CodeReviewResponse): ParsedCodeReviewResponse {
+export function parseCodeReviewResponse(
+  raw: CodeReviewResponse,
+  scoreMin: number = DEFAULT_SCORE_MIN,
+): ParsedCodeReviewResponse {
   const incoming = raw.reviews ?? [];
   
   const flattenedIncoming: CodeReviewItem[] = [];
@@ -31,9 +38,9 @@ export function parseCodeReviewResponse(raw: CodeReviewResponse): ParsedCodeRevi
     if (!seenKeys.has(parentKey)) {
       seenKeys.add(parentKey);
       flattenedIncoming.push(review);
-    } else if (isPublishableReview(review)) {
+    } else if (isPublishableReview(review, scoreMin)) {
       const idx = flattenedIncoming.findIndex((r) => reviewDedupKey(r) === parentKey);
-      if (idx >= 0 && !isPublishableReview(flattenedIncoming[idx]!)) {
+      if (idx >= 0 && !isPublishableReview(flattenedIncoming[idx]!, scoreMin)) {
         flattenedIncoming[idx] = review;
       }
     }
@@ -49,9 +56,9 @@ export function parseCodeReviewResponse(raw: CodeReviewResponse): ParsedCodeRevi
           comment: `*(Ocorrência similar identificada)*\n\n${review.comment}`,
         };
         if (seenKeys.has(occKey)) {
-          if (isPublishableReview(flattenedOcc)) {
+          if (isPublishableReview(flattenedOcc, scoreMin)) {
             const idx = flattenedIncoming.findIndex((r) => reviewDedupKey(r) === occKey);
-            if (idx >= 0 && !isPublishableReview(flattenedIncoming[idx]!)) {
+            if (idx >= 0 && !isPublishableReview(flattenedIncoming[idx]!, scoreMin)) {
               flattenedIncoming[idx] = flattenedOcc;
             }
           }
@@ -63,10 +70,11 @@ export function parseCodeReviewResponse(raw: CodeReviewResponse): ParsedCodeRevi
     }
   }
 
-  const reviews = filterPublishableReviews(flattenedIncoming);
+  const reviews = filterPublishableReviews(flattenedIncoming, scoreMin);
   if (reviews.length < flattenedIncoming.length) {
+    const belowMinLabel = scoreMin > 0 ? `score < ${scoreMin}` : 'score inválido';
     console.warn(
-      `Policy: ${flattenedIncoming.length - reviews.length} review(s) descartado(s) — score ≤ 5, campos obrigatórios ausentes ou contrato inválido.`,
+      `Policy: ${flattenedIncoming.length - reviews.length} review(s) descartado(s) — ${belowMinLabel}, campos obrigatórios ausentes ou contrato inválido.`,
     );
   }
   const resolvedThreads = raw.resolvedThreads ?? [];
@@ -311,13 +319,14 @@ export async function setPullRequestComments(
   reviewsJson: string,
   existingKeys: Map<string, boolean>,
   log: (msg: string) => void,
+  scoreMin: number = DEFAULT_SCORE_MIN,
 ): Promise<PostedReviewThread[]> {
   const posted: PostedReviewThread[] = [];
   const connection = await client.getConnectionData();
   log(`Authenticated as: ${connection.authenticatedUser.providerDisplayName}`);
 
   const reviewsObject = JSON.parse(reviewsJson) as { reviews: CodeReviewItem[] };
-  const reviews = (reviewsObject.reviews ?? []).filter(isPublishableReview);
+  const reviews = (reviewsObject.reviews ?? []).filter((review) => isPublishableReview(review, scoreMin));
 
   if (reviews.length === 0) {
     log('No reviews to post.');
@@ -391,9 +400,10 @@ export async function setPullRequestComments(
 export function getNewReviewsFromPlan(
   reviewsJson: string,
   existingKeys: Map<string, boolean>,
+  scoreMin: number = DEFAULT_SCORE_MIN,
 ): CodeReviewItem[] {
   const reviewsObject = JSON.parse(reviewsJson) as { reviews: CodeReviewItem[] };
   return (reviewsObject.reviews ?? [])
-    .filter(isPublishableReview)
+    .filter((review) => isPublishableReview(review, scoreMin))
     .filter((review) => !isDuplicateReview(review, existingKeys));
 }

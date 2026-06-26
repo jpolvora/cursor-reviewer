@@ -181,7 +181,7 @@ Opcionais: `relatedOccurrences`, `suggestedFix`.
 
 Comentários que falharem em **qualquer** critério serão descartados. Aplique **antes** de emitir o JSON final:
 
-- `score`: número finito, **6 ≤ score ≤ 10**.
+- `score`: número finito, **SCORE_MIN ≤ score ≤ 10** (default **6 ≤ score ≤ 10**; configurável via env `SCORE_MIN` ou `--score-min`; omitir = default 6).
 - `fileName`: não vazio após trim.
 - `lineNumber`: inteiro **> 0**, na linha alterada mais responsável.
 - `severity`: `critical` | `warning` | `suggestion`.

@@ -120,6 +120,7 @@ cp .env.example .env
 | `CURSOR_REVIEWER_TARGET_BRANCH` | `refs/heads/master` | Branch de comparação do diff. |
 | `CURSOR_REVIEWER_BOT_TAG` | `[Cursor Reviewer]` | Tag do bot nos comentários da PR. |
 | `CURSOR_REVIEWER_MAX_ROUNDS` | `5` | Rodadas antes do handoff humano (`0` desativa). |
+| `SCORE_MIN` | `6` | Score mínimo (inclusive) para publicar issue como thread. **Opcional** — omitir mantém limiar 6. |
 | `CURSOR_REVIEWER_TIMEOUT_MS` | `600000` | Timeout da sessão (ambas engines). |
 | `CURSOR_REVIEWER_SANDBOX` | `true` | Sandbox read-only do `cursor-sdk` (`false` só para debug). |
 | `CURSOR_REVIEWER_REPO_ROOT` | auto | Raiz do repositório alvo. |
@@ -152,8 +153,11 @@ npm run review -- [argumentos]
 *   `--custom-prompt <VAL>` : Caminho do arquivo ou string de prompt quando a stack é `Custom` (requerido para `--stack=Custom`).
 *   `--include-patterns <VAL>` : Lista separada por vírgulas de padrões glob de inclusão (ex.: `**/*.py,**/*.go`). Sobrescreve o padrão de arquivos a incluir no diff.
 *   `--model <id>` : Modelo LLM — ID Cursor no engine `cursor-sdk` (`composer-2.5`) ou `provider/model` no `opencode` (`opencode-go/deepseek-v4-flash`). Sobrescreve `CURSOR_REVIEWER_MODEL`.
+*   `--score-min <N>` ou `--score-min=<N>` : Score mínimo (inclusive) para publicar issue como thread (default: `6`). Equivalente à variável `SCORE_MIN`. **Opcional** — omitir mantém limiar 6.
 
 > Engine (`cursor-sdk` | `opencode`) é definida apenas por `CURSOR_REVIEWER_ENGINE` no ambiente — não há flag CLI dedicada.
+
+> **Compatibilidade `SCORE_MIN`:** opt-in; sem configurar, o gate permanece **6–10** (comportamento histórico).
 
 ---
 
@@ -177,7 +181,7 @@ npm run review -- [argumentos]
    └─ Fase 2: Investigação ──► Prova/refuta com tools (read, grep, rules locais)
         │
         ▼
-[Gate de Validação] ──► Filtra reviews inválidos ou com score ≤ 5
+[Gate de Validação] ──► Filtra reviews inválidos ou com score < SCORE_MIN (default: 6)
         │
         ▼
 [Publicação na PR]
