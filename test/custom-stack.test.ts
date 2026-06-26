@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { writeFileSync, rmSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { writeFileSync, rmSync, symlinkSync, mkdtempSync } from 'node:fs';
+import { resolve, join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { loadConfig } from '../src/config.js';
 import { buildAgentPrompt } from '../src/agent/prompt.js';
 import type { ReviewerConfig } from '../src/config.js';
@@ -361,6 +362,87 @@ describe('Custom Stack and Prompts', () => {
         assert.equal(config.customPromptContent, undefined);
       },
     );
+  });
+
+  it('bloqueia leitura de prompt customizado via symlink apontando para arquivo fora do repositório', () => {
+    const outsideDir = mkdtempSync(join(tmpdir(), 'cursor-reviewer-symlink-test-'));
+    const secretFile = join(outsideDir, 'secret.env');
+    writeFileSync(secretFile, 'CURSOR_API_KEY=leaked-secret-via-symlink', 'utf8');
+    const symlinkPath = resolve(process.cwd(), 'temp-symlink-prompt-test.md');
+
+    try {
+      symlinkSync(secretFile, symlinkPath);
+    } catch (err: any) {
+      rmSync(outsideDir, { recursive: true, force: true });
+      return;
+    }
+
+    try {
+      withEnv(
+        {
+          CURSOR_API_KEY: 'cursor_test',
+        },
+        () => {
+          const config = loadConfig([
+            '--dry-run',
+            '--source-branch',
+            'refs/heads/feature',
+            '--stack',
+            'custom',
+            '--custom-prompt',
+            symlinkPath,
+          ]);
+          assert.equal(config.stack, 'TypeScript');
+          assert.equal(config.customPromptContent, undefined);
+        },
+      );
+    } finally {
+      rmSync(symlinkPath, { force: true });
+      rmSync(outsideDir, { recursive: true, force: true });
+    }
+  });
+
+  it('aceita prompt customizado legítimo quando --repo-root aponta para um caminho com symlink (sem falso-positivo de escape)', () => {
+    const realRepoRoot = resolve(process.cwd());
+    const symlinkedRepoRoot = join(tmpdir(), `cursor-reviewer-repo-symlink-${Date.now()}`);
+    const promptFileName = 'temp-in-repo-prompt-test.md';
+    const promptPath = resolve(realRepoRoot, promptFileName);
+    const promptBody = 'Revisar endpoints HTTP/REST com foco em autorização.';
+
+    try {
+      symlinkSync(realRepoRoot, symlinkedRepoRoot);
+    } catch (err: any) {
+      rmSync(promptPath, { force: true });
+      return;
+    }
+
+    writeFileSync(promptPath, promptBody, 'utf8');
+
+    try {
+      withEnv(
+        {
+          CURSOR_API_KEY: 'cursor_test',
+        },
+        () => {
+          const config = loadConfig([
+            '--dry-run',
+            '--source-branch',
+            'refs/heads/feature',
+            '--repo-root',
+            symlinkedRepoRoot,
+            '--stack',
+            'custom',
+            '--custom-prompt',
+            `./${promptFileName}`,
+          ]);
+          assert.equal(config.stack, 'Custom');
+          assert.equal(config.customPromptContent, promptBody);
+        },
+      );
+    } finally {
+      rmSync(symlinkedRepoRoot, { force: true });
+      rmSync(promptPath, { force: true });
+    }
   });
 
   it('reseta includePatterns para o default da stack de fallback se a stack Custom falhar e cair no fallback', () => {

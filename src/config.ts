@@ -1,5 +1,5 @@
 import { resolve, relative, isAbsolute } from 'node:path';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync, readdirSync } from 'node:fs';
 import {
   assertSupportedCursorReviewerModelId,
   DEFAULT_CURSOR_REVIEWER_MODEL,
@@ -785,9 +785,11 @@ function resolveCustomPromptContent(customPromptVal: string, repoRoot: string): 
 
   const p = resolve(repoRoot, trimmed);
   if (existsSync(p)) {
-    assertPathInsideRepo(p, repoRoot);
+    const canonicalPath = realpathSync(p);
+    const canonicalRepoRoot = realpathSync(repoRoot);
+    assertPathInsideRepo(canonicalPath, canonicalRepoRoot);
     try {
-      return readFileSync(p, 'utf8');
+      return readFileSync(canonicalPath, 'utf8');
     } catch (err: any) {
       throw new Error(`Erro ao ler o arquivo de prompt customizado em "${p}": ${err.message}`);
     }
