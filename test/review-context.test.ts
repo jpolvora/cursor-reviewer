@@ -156,6 +156,83 @@ describe('getPullRequestReviewContext', () => {
     assert.equal(parsed.reviews[1].lineNumber, 20);
   });
 
+  it('não marca hasResolutionReply quando comentário raiz (parentCommentId=0) contém o marcador', async () => {
+    const fakeClient = {
+      get: async () => ({
+        value: [
+          {
+            id: 20,
+            status: 'active',
+            threadContext: {
+              filePath: '/src/Auth.cs',
+              rightFileStart: { line: 15 },
+            },
+            comments: [
+              {
+                id: 1,
+                parentCommentId: 0,
+                content:
+                  '[Cursor Reviewer]\n⚠️ **WARNING:** análise menciona <!-- resolution-reply --> como exemplo.',
+                commentType: 1,
+              },
+            ],
+          },
+        ],
+      }),
+    };
+
+    const context = await getPullRequestReviewContext(
+      fakeClient as never,
+      123,
+      '[Cursor Reviewer]',
+      () => {},
+    );
+
+    assert.equal(context.activeThreads.length, 1);
+    assert.equal(context.activeThreads[0].hasResolutionReply, false);
+  });
+
+  it('marca hasResolutionReply quando reply real (parentCommentId!=0) contém o marcador', async () => {
+    const fakeClient = {
+      get: async () => ({
+        value: [
+          {
+            id: 21,
+            status: 'active',
+            threadContext: {
+              filePath: '/src/Auth.cs',
+              rightFileStart: { line: 15 },
+            },
+            comments: [
+              {
+                id: 1,
+                parentCommentId: 0,
+                content: '[Cursor Reviewer]\n⚠️ **WARNING:** bug real aqui.',
+                commentType: 1,
+              },
+              {
+                id: 2,
+                parentCommentId: 1,
+                content: '[Cursor Reviewer]\n<!-- resolution-reply -->\ncorrigido',
+                commentType: 1,
+              },
+            ],
+          },
+        ],
+      }),
+    };
+
+    const context = await getPullRequestReviewContext(
+      fakeClient as never,
+      123,
+      '[Cursor Reviewer]',
+      () => {},
+    );
+
+    assert.equal(context.activeThreads.length, 1);
+    assert.equal(context.activeThreads[0].hasResolutionReply, true);
+  });
+
   it('preserva sumários completos com pontos no padrão de risco', async () => {
     const fakeClient = {
       get: async () => ({

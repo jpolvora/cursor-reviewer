@@ -35,6 +35,10 @@ Para detalhes arquiteturais e teóricos profundos, consulte a pasta [`docs/`](do
     *   **GitHub:** Anexa um resumo markdown completo da revisão diretamente na página do workflow via `GITHUB_STEP_SUMMARY`.
 *   **📦 Execução Remota via cURL:** Permite rodar o reviewer remotamente baixando apenas o script `run.sh` da branch `release`, dispensando o clone completo do repositório ou a presença de dependências de desenvolvimento.
 *   **🛠️ Instalador de Skills Interativo (`install-skills.sh`):** Menu interativo no terminal (hospedado no repositório centralizado [workflow-skills](https://github.com/jpolvora/workflow-skills)) para selecionar, instalar e atualizar as diretrizes agênticas (`skills`) do Cursor no repositório de destino local de maneira simples e segura.
+*   **🤖 Skills agênticas do runner (`.agents/skills/`):** Skills versionadas neste repositório para uso no Cursor/IDE ao desenvolver ou operar o `cursor-reviewer`:
+    *   **`code-review-self`** — Executa o pipeline de review (duas fases, gate, rodadas) pelo próprio agente do IDE, sem `@cursor/sdk`; útil para dry-run local e validação do comportamento do runner.
+    *   **`megabrain`** — Revisão com threads persistentes (`[Thread #1]`, `[Thread #2]`, …); em rodadas seguintes avalia se cada thread foi `RESOLVED` ou permanece `UNRESOLVED`.
+    *   **`solve-pr`** — Automatiza o ciclo de correção: busca threads do bot no GitHub, aplica fixes, commit/push e aguarda nova rodada do reviewer.
 
 ---
 
@@ -231,6 +235,16 @@ Desta forma, quando novas skills forem adicionadas ao `workflow-skills` ou as ex
 > [!NOTE]
 > **Execução Descentralizada:** O script detecta automaticamente se está sendo executado fora do repositório original do `workflow-skills` (como na execução via cURL acima). Nesses casos, ele clona silenciosamente o repositório original do GitHub em um diretório temporário para obter as skills mais recentes e as instala ou atualiza localmente no seu projeto sem gerar colisões ou conflitos de caminhos.
 
+### Skills específicas do `cursor-reviewer`
+
+As skills em `.agents/skills/` deste repositório são **locais ao runner** (não instaladas via `workflow-skills`). Invocáveis no Cursor com `/code-review-self`, `/megabrain` ou `/solve-pr` quando anexadas à conversa:
+
+| Skill | Quando usar |
+| :--- | :--- |
+| `code-review-self` | Revisar diff/PR localmente pelo agente do IDE, espelhando `src/index.ts` em modo somente-leitura |
+| `megabrain` | Revisão iterativa com threads numeradas; follow-up após commits de correção |
+| `solve-pr` | Implementar correções das threads abertas do bot e republicar na PR |
+
 ---
 
 ## 🌐 Integração em CI/CD
@@ -309,4 +323,5 @@ jobs:
 *   `src/agent/` : Código de conexão com o Cursor SDK, geração do prompt e tokens.
 *   `src/ado/` : Regras de validação do gate, de rodadas, formatação de threads e helpers do ADO.
 *   `skills/` : Contratos de prompts estáticos do agente (`SYSTEM_PROMPT.md` e `CODE_REVIEW.md`) e subpasta `skills/stacks/` contendo os prompts complementares com as recomendações de cada stack.
+*   `.agents/skills/` : Skills agênticas do ecossistema do runner (`code-review-self`, `megabrain`, `solve-pr` e scripts auxiliares).
 *   `demo-project/` : Projeto de demonstração contendo erros intencionais para fins de testes locais.
