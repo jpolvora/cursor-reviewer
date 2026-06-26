@@ -130,4 +130,63 @@ describe('getPullRequestReviewContext', () => {
     assert.equal(reviews.length, 1);
     assert.equal(reviews[0].fileName, '/src/High.cs');
   });
+
+  it('deduplica ocorrências similares intra-lote em parseCodeReviewResponse', () => {
+    const parsed = parseCodeReviewResponse({
+      reviews: [
+        validReview({
+          fileName: '/src/Main.cs',
+          lineNumber: 10,
+          comment: 'Main problem',
+          relatedOccurrences: [
+            { fileName: '/src/Main.cs', lineNumber: 10 },
+            { fileName: '/src/Other.cs', lineNumber: 20 },
+            { fileName: '/src/Other.cs', lineNumber: 20 },
+          ],
+        }),
+      ],
+      resolvedThreads: [],
+      reviewSummary: '',
+    });
+
+    assert.equal(parsed.reviews.length, 2);
+    assert.equal(parsed.reviews[0].fileName, '/src/Main.cs');
+    assert.equal(parsed.reviews[0].lineNumber, 10);
+    assert.equal(parsed.reviews[1].fileName, '/src/Other.cs');
+    assert.equal(parsed.reviews[1].lineNumber, 20);
+  });
+
+  it('preserva sumários completos com pontos no padrão de risco', async () => {
+    const fakeClient = {
+      get: async () => ({
+        value: [
+          {
+            id: 12,
+            status: 'active',
+            threadContext: {
+              filePath: '/src/Main.cs',
+              rightFileStart: { line: 10 },
+            },
+            comments: [
+              {
+                id: 1,
+                parentCommentId: 0,
+                content: '[Cursor Reviewer]\nErro com abreviação ex.: HTTP/REST e arquivo config.json.',
+                commentType: 1,
+              },
+            ],
+          },
+        ],
+      }),
+    };
+
+    const context = await getPullRequestReviewContext(
+      fakeClient as never,
+      123,
+      '[Cursor Reviewer]',
+      () => {},
+    );
+
+    assert.ok(context.contextForLlm.includes('- Erro com abreviação ex.: HTTP/REST e arquivo config.json.'));
+  });
 });

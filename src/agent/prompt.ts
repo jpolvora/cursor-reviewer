@@ -198,12 +198,12 @@ function buildTwoPhaseWorkflow(context: PromptContext): string[] {
     '3. Combine múltiplos achados na **mesma linha** em um único review.',
     '4. Preencha `comment` (amigável, sem código); `suggestedFix` só se houver patch cirúrgico claro (senão `""`).',
     '',
-    '#### 2.5 — Generalização por classe de defeito (obrigatória — evita whack-a-mole)',
+    '### Fase 3 — Prevenção de Whack-a-Mole (Agrupamento e Generalização)',
     '',
-    'Para **cada achado comprovado**, antes de finalizar: use `grep`/`glob` para procurar **ocorrências irmãs do mesmo padrão** em todos os arquivos elegíveis do diff.',
+    'Para **cada achado comprovado na Fase 2**, antes de emitir o JSON final: você DEVE usar `grep`/`glob` para procurar **ocorrências irmãs do mesmo padrão** em todos os arquivos elegíveis do diff.',
     '',
-    '- Exemplos: `[Authorize]` ausente num endpoint → verifique os demais endpoints alterados; validação ausente de `DateTime`/`Guid.Empty`/enum num DTO → verifique os demais DTOs; `.Result`/`.Wait()` num método → verifique os demais.',
-    '- Reporte **todas** as ocorrências da classe nesta mesma resposta (um review por linha responsável, ou um review citando todas em `impactPaths`). **Não** reporte só a primeira e deixe as irmãs para a próxima rodada — isso quebra a convergência.',
+    '- Exemplos: `[Authorize]` ausente num endpoint → verifique os demais endpoints; `.Result`/`.Wait()` num método → verifique os demais.',
+    '- Agrupe **todas** as ocorrências da mesma classe no array `relatedOccurrences` do review principal. **Não** reporte só a primeira e deixe as irmãs para a próxima rodada — isso quebra a convergência.',
   ];
 }
 
@@ -226,7 +226,9 @@ export function buildAgentPrompt(config: ReviewerConfig, context: PromptContext)
   const codeReviewSkillContent = loadFileContent(config.skillPath, 'Skill CODE_REVIEW.md');
 
   let stackPromptContent = '';
-  if (config.stackPromptPath && existsSync(config.stackPromptPath)) {
+  if (config.customPromptContent) {
+    stackPromptContent = config.customPromptContent;
+  } else if (config.stackPromptPath && existsSync(config.stackPromptPath)) {
     stackPromptContent = loadFileContent(config.stackPromptPath, `Stack Prompt (${config.stack})`);
   }
 

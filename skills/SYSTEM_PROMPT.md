@@ -48,7 +48,10 @@ Retorne **exclusivamente** um único bloco JSON válido (fence com tag `json`). 
       "developerAction": "fix-code",
       "analysis": "Evidência lida, cenário de falha, proteções verificadas e descartes.",
       "impactPaths": ["/src/Foo.cs", "/test/FooTests.cs"],
-      "suggestedFix": "```csharp\n// código corrigido com recuo correto\n```"
+      "suggestedFix": "```csharp\n// código corrigido com recuo correto\n```",
+      "relatedOccurrences": [
+        { "fileName": "/src/OutroArquivo.cs", "lineNumber": 150 }
+      ]
     }
   ],
   "resolvedThreads": [{ "threadId": 12345, "note": "..." }],
@@ -59,6 +62,8 @@ Retorne **exclusivamente** um único bloco JSON válido (fence com tag `json`). 
 ### Campos obrigatórios por review
 
 `fileName`, `lineNumber`, `severity`, `comment`, `score`, `developerAction`, `analysis`, `impactPaths`.
+
+`relatedOccurrences`: **opcional** — array de objetos contendo `fileName` e `lineNumber` para agrupar ocorrências do **mesmo defeito** em outros arquivos (evita o loop whack-a-mole).
 
 `suggestedFix`: **opcional** — preencha com bloco de código por linguagem (` ```csharp `, ` ```ts `, ` ```html ` ou ` ```diff `) quando houver correção cirúrgica clara; use `""` se o achado for conceitual (ex.: falta de autorização sem patch óbvio). **Não** use ` ```suggestion ` — o Azure DevOps não suporta "apply suggestion".
 

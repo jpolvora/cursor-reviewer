@@ -80,6 +80,13 @@ export function getStackConfig(stackName: string): StackConfig | undefined {
   if (normalized === 'typescript' || normalized === 'ts') {
     return STACKS['typescript'];
   }
+  if (normalized === 'custom') {
+    return {
+      name: 'Custom',
+      includePatterns: DEFAULT_INCLUDE,
+      promptFileName: '',
+    };
+  }
   return undefined;
 }
 
@@ -186,6 +193,7 @@ export interface ReviewerConfig {
   stack: string;
   stackPromptPath: string | null;
   stackSource: 'cli' | 'env' | 'detected' | 'fallback';
+  customPromptContent?: string;
 }
 
 export interface CliArgs {
@@ -206,6 +214,8 @@ export interface CliArgs {
   ado?: boolean;
   gh?: boolean;
   stack?: string;
+  customPrompt?: string;
+  includePatterns?: string;
 }
 
 const DEFAULT_INCLUDE = ['**/*.cs', '**/*.ts', '**/*.html', '*.cs', '*.ts', '*.html'];
@@ -281,6 +291,14 @@ function parseArgs(argv: string[]): CliArgs {
       args.stack = arg.slice(8);
       continue;
     }
+    if (arg.startsWith('--custom-prompt=')) {
+      args.customPrompt = arg.slice(16);
+      continue;
+    }
+    if (arg.startsWith('--include-patterns=')) {
+      args.includePatterns = arg.slice(19);
+      continue;
+    }
 
     switch (arg) {
       case '--help':
@@ -346,6 +364,14 @@ function parseArgs(argv: string[]): CliArgs {
         break;
       case '--stack':
         args.stack = next;
+        i++;
+        break;
+      case '--custom-prompt':
+        args.customPrompt = next;
+        i++;
+        break;
+      case '--include-patterns':
+        args.includePatterns = next;
         i++;
         break;
       default:
@@ -573,19 +599,91 @@ export function loadConfig(argv: string[] = process.argv.slice(2)): ReviewerConf
     }
   }
 
-  const stackConfig = getStackConfig(stackName);
+  let stackConfig = getStackConfig(stackName);
+  let customPromptContent: string | undefined;
+  const rawCustomPrompt = cli.customPrompt ?? process.env.CURSOR_REVIEWER_CUSTOM_PROMPT?.trim() ?? '';
+  const customPromptVal = rawCustomPrompt && !isUnexpandedPipelineMacro(rawCustomPrompt) ? rawCustomPrompt : '';
+
+  const rawIncludePatterns = cli.includePatterns ?? process.env.CURSOR_REVIEWER_INCLUDE_PATTERNS?.trim() ?? '';
+  const includePatternsVal = rawIncludePatterns && !isUnexpandedPipelineMacro(rawIncludePatterns) ? rawIncludePatterns : '';
+
+  let customStackError: Error | null = null;
+
   if (!stackConfig) {
-    throw new Error(
-      `Stack "${stackName}" não é suportada. Stacks disponíveis: ABP/Angular, PHP/Laravel, Next.js/React`,
-    );
+    customStackError = new Error(`Stack "${stackName}" não é suportada.`);
+  } else if (stackConfig.name === 'Custom' || customPromptVal) {
+    try {
+      if (stackConfig.name === 'Custom' && !customPromptVal) {
+        throw new Error(
+          'A stack "Custom" requer a definição do parâmetro --custom-prompt ou da variável de ambiente CURSOR_REVIEWER_CUSTOM_PROMPT.',
+        );
+      }
+
+      if (customPromptVal) {
+        if (stackConfig.name !== 'Custom') {
+          throw new Error(
+            '--custom-prompt / CURSOR_REVIEWER_CUSTOM_PROMPT só é permitido com --stack=Custom.',
+          );
+        }
+        customPromptContent = resolveCustomPromptContent(customPromptVal, repoRoot);
+        if (!customPromptContent?.trim()) {
+          throw new Error(
+            'A stack "Custom" requer prompt customizado com conteúdo não vazio.',
+          );
+        }
+      }
+    } catch (err: any) {
+      customStackError = err;
+    }
   }
 
-  const stackPromptPath = resolve(
-    resolvedProject.runnerRoot,
-    'skills',
-    'stacks',
-    stackConfig.promptFileName,
-  );
+  let includePatternsResetByFallback = false;
+
+  if (customStackError) {
+    // Falha na stack customizada ou stack desconhecida. Ativamos fallback automático.
+    const originalStack = stackName;
+    const detected = detectStack(repoRoot);
+    const fallbackStackName = detected ?? 'ABP/Angular';
+    stackConfig = getStackConfig(fallbackStackName)!;
+    stackName = stackConfig.name;
+    stackSource = detected ? 'detected' : 'fallback';
+    customPromptContent = undefined; // descarta o prompt customizado com problema
+    includePatternsResetByFallback = Boolean(includePatternsVal);
+
+    console.warn('\x1b[33m%s\x1b[0m', `\n⚠️  [Cursor Reviewer] AVISO DE CONFIGURAÇÃO DE STACK/PROMPT:`);
+    console.warn('\x1b[33m%s\x1b[0m', `   ${customStackError.message}`);
+    console.warn('\x1b[33m%s\x1b[0m', `   Fallback ativado: utilizando stack "${stackName}" (${detected ? 'auto-detectada' : 'fallback padrão'}).\n`);
+  }
+
+  // Garantimos que stackConfig não é undefined (se for, usamos ABP/Angular como último recurso)
+  if (!stackConfig) {
+    stackConfig = getStackConfig('ABP/Angular')!;
+    stackName = stackConfig.name;
+    stackSource = 'fallback';
+  }
+
+  let includePatterns: string[];
+
+  if (includePatternsVal && !includePatternsResetByFallback) {
+    const parsed = parseCsvPatterns(includePatternsVal);
+    if (parsed.length === 0) {
+      console.warn('\x1b[33m%s\x1b[0m', `\n⚠️  [Cursor Reviewer] AVISO: --include-patterns parseou para lista vazia. Usando os padrões padrão da stack: "${stackConfig.name}".\n`);
+      includePatterns = stackConfig.name === 'Custom' ? ['**/*'] : stackConfig.includePatterns;
+    } else {
+      includePatterns = parsed;
+    }
+  } else {
+    includePatterns = stackConfig.name === 'Custom' ? ['**/*'] : stackConfig.includePatterns;
+  }
+
+  const stackPromptPath = stackConfig.promptFileName
+    ? resolve(
+        resolvedProject.runnerRoot,
+        'skills',
+        'stacks',
+        stackConfig.promptFileName,
+      )
+    : null;
 
   return {
     repoRoot,
@@ -607,7 +705,7 @@ export function loadConfig(argv: string[] = process.argv.slice(2)): ReviewerConf
     pullRequestId,
     pullRequestIdSource,
     adoAccessToken,
-    includePatterns: stackConfig.includePatterns,
+    includePatterns,
     excludePatterns: resolveExcludePatterns(repoRoot, resolvedProject.runnerRoot),
     skillPath: resolvedProject.codeReviewSkillPath,
     systemPromptPath: resolvedProject.systemPromptPath,
@@ -617,6 +715,7 @@ export function loadConfig(argv: string[] = process.argv.slice(2)): ReviewerConf
     stack: stackConfig.name,
     stackPromptPath,
     stackSource,
+    customPromptContent,
   };
 }
 
@@ -641,7 +740,9 @@ Opções:
   --model ID             Modelo Cursor (default canônico: composer-2.5)
   --repo-root PATH       Raiz do repositório (default: detectado via scripts/cursor-reviewer)
   --ado / --gh           Define a estratégia de execução/plataforma (Azure DevOps ou GitHub)
-  --stack NAME           Stack tecnológica para o review (ABP/Angular, PHP/Laravel, Next.js/React. Default: ABP/Angular)
+  --stack NAME           Stack tecnológica para o review (ABP/Angular, PHP/Laravel, Next.js/React, TypeScript, Custom. Default: ABP/Angular)
+  --custom-prompt VAL    Caminho do arquivo ou string de prompt quando a stack é Custom (requerido para --stack=Custom)
+  --include-patterns VAL Lista separada por vírgulas de padrões glob de inclusão (sobrescreve o default da stack)
 
 Pré-requisitos do projeto alvo (obrigatórios — o script encerra se ausentes):
   skills/CODE_REVIEW.md
@@ -661,4 +762,52 @@ Exemplo local:
 Exemplo local com target customizado:
   CURSOR_REVIEWER_TARGET_BRANCH=refs/heads/develop npm run review -- --dry-run
 `);
+}
+
+function assertPathInsideRepo(resolvedPath: string, repoRoot: string): void {
+  const rel = relative(resolve(repoRoot), resolve(resolvedPath));
+  if (rel.startsWith('..') || isAbsolute(rel)) {
+    throw new Error(
+      `Arquivo de prompt customizado deve estar dentro do repositório: "${resolvedPath}"`,
+    );
+  }
+}
+
+function resolveCustomPromptContent(customPromptVal: string, repoRoot: string): string {
+  const trimmed = customPromptVal.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  if (trimmed.includes('\n') || trimmed.includes('\r')) {
+    return trimmed;
+  }
+
+  const p = resolve(repoRoot, trimmed);
+  if (existsSync(p)) {
+    assertPathInsideRepo(p, repoRoot);
+    try {
+      return readFileSync(p, 'utf8');
+    } catch (err: any) {
+      throw new Error(`Erro ao ler o arquivo de prompt customizado em "${p}": ${err.message}`);
+    }
+  }
+
+  const looksLikeFilePath =
+    trimmed.startsWith('./') ||
+    trimmed.startsWith('.\\') ||
+    trimmed.startsWith('../') ||
+    trimmed.startsWith('..\\') ||
+    /^[A-Za-z]:\\/.test(trimmed) ||
+    /^[A-Za-z]:\//.test(trimmed) ||
+    trimmed.startsWith('/') ||
+    trimmed.startsWith('\\') ||
+    ((trimmed.endsWith('.md') || trimmed.endsWith('.txt')) &&
+      (trimmed.includes('/') || trimmed.includes('\\')));
+
+  if (looksLikeFilePath) {
+    throw new Error(`Arquivo de prompt customizado não encontrado: "${trimmed}"`);
+  }
+
+  return trimmed;
 }

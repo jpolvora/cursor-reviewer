@@ -16,12 +16,57 @@ import type {
   ResolvedThreadItem,
 } from './types.js';
 
+function reviewDedupKey(review: Pick<CodeReviewItem, 'fileName' | 'lineNumber'>): string {
+  return `${normalizeFilePath(review.fileName)}|line:${review.lineNumber}`;
+}
+
 export function parseCodeReviewResponse(raw: CodeReviewResponse): ParsedCodeReviewResponse {
   const incoming = raw.reviews ?? [];
-  const reviews = filterPublishableReviews(incoming);
-  if (reviews.length < incoming.length) {
+  
+  const flattenedIncoming: CodeReviewItem[] = [];
+  const seenKeys = new Set<string>();
+
+  for (const review of incoming) {
+    const parentKey = reviewDedupKey(review);
+    if (!seenKeys.has(parentKey)) {
+      seenKeys.add(parentKey);
+      flattenedIncoming.push(review);
+    } else if (isPublishableReview(review)) {
+      const idx = flattenedIncoming.findIndex((r) => reviewDedupKey(r) === parentKey);
+      if (idx >= 0 && !isPublishableReview(flattenedIncoming[idx]!)) {
+        flattenedIncoming[idx] = review;
+      }
+    }
+
+    if (review.relatedOccurrences && review.relatedOccurrences.length > 0) {
+      for (const occ of review.relatedOccurrences) {
+        const occKey = reviewDedupKey(occ);
+        const flattenedOcc: CodeReviewItem = {
+          ...review,
+          fileName: occ.fileName,
+          lineNumber: occ.lineNumber,
+          relatedOccurrences: undefined,
+          comment: `*(Ocorrência similar identificada)*\n\n${review.comment}`,
+        };
+        if (seenKeys.has(occKey)) {
+          if (isPublishableReview(flattenedOcc)) {
+            const idx = flattenedIncoming.findIndex((r) => reviewDedupKey(r) === occKey);
+            if (idx >= 0 && !isPublishableReview(flattenedIncoming[idx]!)) {
+              flattenedIncoming[idx] = flattenedOcc;
+            }
+          }
+          continue;
+        }
+        seenKeys.add(occKey);
+        flattenedIncoming.push(flattenedOcc);
+      }
+    }
+  }
+
+  const reviews = filterPublishableReviews(flattenedIncoming);
+  if (reviews.length < flattenedIncoming.length) {
     console.warn(
-      `Policy: ${incoming.length - reviews.length} review(s) descartado(s) — score ≤ 5, campos obrigatórios ausentes ou contrato inválido.`,
+      `Policy: ${flattenedIncoming.length - reviews.length} review(s) descartado(s) — score ≤ 5, campos obrigatórios ausentes ou contrato inválido.`,
     );
   }
   const resolvedThreads = raw.resolvedThreads ?? [];

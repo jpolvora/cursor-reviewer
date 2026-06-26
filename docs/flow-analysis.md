@@ -107,11 +107,12 @@ Variáveis associadas: `CURSOR_REVIEWER_STACK`, `CURSOR_REVIEWER_REVIEW_SELF`, `
 | Uso | Escopo |
 |-----|--------|
 | **Dedup** (`existingKeys`) | Threads **active/pending** do bot com `filePath` — chave `path\|line:N` |
-| **Prompt LLM (ativas)** | Threads **active/pending** do bot — tabela "Active threads (open)" (~160 chars) |
-| **Prompt LLM (memória)** | Threads **fixed/wontFix/closed/byDesign** do bot — tabela "Already resolved threads" com instrução de **não re-levantar sem nova evidência** (anti-loop de re-litígio) |
+| **Prompt LLM (Memória Intra-PR)** | Os sumários de TODAS as threads (ativas e resolvidas) são consolidados na seção `Padrões de Risco Detectados Nesta PR` para orientar ativamente as buscas das Fases 1 e 2. |
+| **Prompt LLM (ativas)** | Tabela "Active threads (open)" detalhada (~160 chars) |
+| **Prompt LLM (memória fechadas)** | Tabela "Already resolved threads" com instrução de **não re-levantar sem nova evidência** (anti-loop de re-litígio) |
 | **Gate** | Threads **active/pending** do bot `[Cursor Reviewer]` apenas |
 
-Threads de humanos **não** entram no prompt; **não** entram no resumo de pendentes do bot. Threads resolvidas **não** entram no `existingKeys` (dedup determinístico) — viram apenas memória para o LLM decidir com nova evidência.
+Threads de humanos **não** entram no prompt; **não** entram no resumo de pendentes do bot. Threads resolvidas **não** entram no `existingKeys` (dedup determinístico) — viram apenas memória para o LLM.
 
 ### Instruções fixas e Stack Prompts
 - `skills/SYSTEM_PROMPT.md`: modo read-only, contrato JSON, classificação severity/score e filtro de publicação.
@@ -172,7 +173,9 @@ Por candidato, provar com tools antes de publicar:
 
 Sem os 4 itens → **não entra em `reviews`**.
 
-**Generalização por classe (passo 2.5, obrigatório):** para cada achado comprovado, varrer (`grep`/`glob`) ocorrências irmãs do mesmo padrão nos arquivos elegíveis e reportar **todas** na mesma resposta — não deixar irmãs para a próxima rodada (evita whack-a-mole). Alinhado ao mandato de **completude na mesma rodada** do `SYSTEM_PROMPT.md` (precisão por achado, recall completo por rodada → convergência em ~1 rodada).
+### Fase 3 — Agrupamento e Generalização (Anti Whack-a-mole)
+
+Para cada achado comprovado na Fase 2, varrer (`grep`/`glob`) ocorrências irmãs do mesmo padrão nos arquivos elegíveis e agrupar **todas** no array `relatedOccurrences` — não deixar irmãs para a próxima rodada (evita whack-a-mole). Alinhado ao mandato de **completude na mesma rodada** do `SYSTEM_PROMPT.md` (precisão por achado, recall completo por rodada → convergência em ~1 rodada).
 
 No veredito final reaplica o gate anti-falso-positivo, confirma que percorreu todos os arquivos elegíveis, combina achados na mesma linha e emite **somente** o bloco ` ```json `.
 
@@ -236,6 +239,7 @@ Reviews fora desse contrato são **descartados** antes da publicação. A filtra
 - Extrai o **último** fence ` ```json ` válido (ignora fences não-JSON, ex. ` ```ts `).
 - Fallback: varre objetos `{...}` de nível superior (chaves balanceadas, O(n)) e usa o **último JSON válido**, preferindo os que têm `"reviews"` (stdout com logs duplicados).
 - Sanitização de aspas/quebras se `JSON.parse` falhar; `reviews` não-array lança erro descritivo.
+- **Achatamento (Flatten):** Expande os agrupamentos de `relatedOccurrences` gerando múltiplos objetos `CodeReviewItem` separados, preservando a `analysis` mas distribuindo as threads pelos arquivos corretos (anti whack-a-mole).
 - Normalização defensiva de `fileName`, `lineNumber`, `impactPaths` e severidade.
 - `parseCodeReviewResponse` descarta reviews que não passam em `isPublishableReview` (score 6–10 + campos obrigatórios).
 
