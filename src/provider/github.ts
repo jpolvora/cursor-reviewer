@@ -3,16 +3,35 @@ import type { ReviewerConfig } from '../config.js';
 import type { Logger } from '../logger.js';
 import { formatCommentForPosting } from '../ado/format-thread.js';
 import { getReviewSummaryFromComment } from '../ado/review-context.js';
+import {
+  filterValidResolvedItems,
+  isActiveOrPendingStatus,
+  isDuplicateReview,
+  isPublishableReview,
+  matchesResolvedItem,
+} from '../ado/post-comments.js';
+import {
+  buildRoundStateComment,
+  ROUND_STATE_MARKER,
+  type RoundStateCommentInput,
+  type RoundStateLocation,
+} from '../ado/round-state.js';
+import { commentHasBotTag, normalizeFilePath, reviewDedupKey } from '../ado/utils.js';
+import {
+  commentBodyHasResolutionReply,
+  RESOLUTION_MARKER,
+  REVIEW_SUMMARY_MARKER,
+} from '../git/markers.js';
 import type { PlatformProvider } from './types.js';
 import type {
   ActiveThreadInfo,
   CodeReviewItem,
   GateEvaluation,
   PendingPrThread,
-  ReviewContextResult,
   PostedReviewThread,
+  ResolvedThreadItem,
+  ReviewContextResult,
 } from '../ado/types.js';
-import type { RoundStateCommentInput, RoundStateLocation } from '../ado/round-state.js';
 import type { TokenUsageTotals } from '../agent/token-usage.js';
 
 interface GraphqlPrResponse {
@@ -238,15 +257,15 @@ export class GithubProvider implements PlatformProvider {
 
         const firstComment = comments[0];
         const rawContent = firstComment.body;
-        const isBot = rawContent.includes(botTag);
-        const filePath = thread.path;
+        const isBot = commentHasBotTag(rawContent, botTag, 'contains');
+        const normalizedPath = normalizeFilePath(thread.path);
         const lineNumber = thread.line ?? 1;
 
         const isResolved = thread.isResolved;
         const status = isResolved ? 'fixed' : 'active';
 
         if (isBot && !isResolved) {
-          existingKeys.set(`${filePath}|line:${lineNumber}`, true);
+          existingKeys.set(reviewDedupKey(normalizedPath, lineNumber), true);
         }
 
         const summary = getReviewSummaryFromComment(rawContent, botTag);
@@ -254,23 +273,27 @@ export class GithubProvider implements PlatformProvider {
         if (isBot) {
           if (!isResolved) {
             activeContextRows.push({
-              filePath,
+              filePath: normalizedPath,
               lineNumber,
               status,
               summary,
             });
             activeThreads.push({
               threadId: thread.id,
-              filePath,
+              filePath: normalizedPath,
               lineNumber,
               status,
               summary,
               botCommentId: firstComment.databaseId,
-              hasResolutionReply: comments.some(c => c.body.includes('reviewer-resolved') || (c.body.includes(botTag) && c.body.includes('Addressing issue'))),
+              hasResolutionReply: comments.some(
+                (c) =>
+                  commentHasBotTag(c.body, botTag, 'contains') &&
+                  commentBodyHasResolutionReply(c.body, botTag),
+              ),
             });
           } else {
             resolvedContextRows.push({
-              filePath,
+              filePath: normalizedPath,
               lineNumber,
               status,
               summary,
@@ -282,7 +305,7 @@ export class GithubProvider implements PlatformProvider {
           pendingThreads.push({
             threadId: thread.id,
             status: 'active',
-            filePath,
+            filePath: normalizedPath,
             lineNumber,
             author: firstComment.author?.login ?? 'unknown',
             isBot,
@@ -393,7 +416,7 @@ These issues were reported in a previous round and already resolved/closed. Do *
   async resolvePullRequestReviewThreads(
     botTag: string,
     activeThreads: ActiveThreadInfo[],
-    resolvedItems: any[],
+    resolvedItems: ResolvedThreadItem[],
     log: (msg: string) => void,
   ): Promise<number> {
     if (activeThreads.length === 0) {
@@ -401,31 +424,42 @@ These issues were reported in a previous round and already resolved/closed. Do *
       return 0;
     }
 
+    const llmResolved = filterValidResolvedItems(resolvedItems);
     let resolvedCount = 0;
 
     for (const threadInfo of activeThreads) {
-      const match = resolvedItems.find((item) => {
-        if (item.threadId != null && String(item.threadId) === threadInfo.threadId) {
-          return true;
+      if (threadInfo.hasResolutionReply && isActiveOrPendingStatus(threadInfo.status)) {
+        try {
+          await this.resolveGithubThread(threadInfo.threadId);
+          log(
+            `Recovered stuck thread ${threadInfo.threadId} (resolve-only after partial resolution).`,
+          );
+          resolvedCount++;
+        } catch (error) {
+          log(`Error: failed to recover stuck thread ${threadInfo.threadId}: ${String(error)}`);
+          throw error;
         }
-        if (item.fileName && item.lineNumber != null && item.lineNumber > 0) {
-          return item.fileName === threadInfo.filePath && item.lineNumber === threadInfo.lineNumber;
-        }
-        return false;
-      });
-
-      if (!match && !threadInfo.hasResolutionReply) {
         continue;
       }
 
-      const reason = match?.note?.trim() || 'Issue verificado como corrigido na iteração atual.';
+      if (threadInfo.hasResolutionReply) {
+        log(`Thread ${threadInfo.threadId} already has a resolution reply. Skipping.`);
+        continue;
+      }
+
+      const match = llmResolved.find((item) => matchesResolvedItem(threadInfo, item));
+      if (!match) {
+        continue;
+      }
+
+      const reason = match.note?.trim() || 'Issue verificado como corrigido na iteração atual.';
       const replyContent = [
         botTag,
-        '<!-- reviewer-resolved -->',
+        RESOLUTION_MARKER,
         '',
         'Issue addressed in the current iteration. Marking as resolved.',
         '',
-        reason,
+        reason.trim(),
       ].join('\n');
 
       try {
@@ -435,17 +469,7 @@ These issues were reported in a previous round and already resolved/closed. Do *
           in_reply_to: Number(threadInfo.botCommentId),
         });
 
-        const mutation = `
-          mutation ResolveThread($threadId: ID!) {
-            resolveReviewThread(input: { threadId: $threadId }) {
-              thread {
-                id
-                isResolved
-              }
-            }
-          }
-        `;
-        await this.client.graphql(mutation, { threadId: threadInfo.threadId });
+        await this.resolveGithubThread(threadInfo.threadId);
         log(`Resolved thread ${threadInfo.threadId} (${threadInfo.filePath}:${threadInfo.lineNumber}).`);
         resolvedCount++;
       } catch (error) {
@@ -457,6 +481,20 @@ These issues were reported in a previous round and already resolved/closed. Do *
     return resolvedCount;
   }
 
+  private async resolveGithubThread(threadId: string): Promise<void> {
+    const mutation = `
+      mutation ResolveThread($threadId: ID!) {
+        resolveReviewThread(input: { threadId: $threadId }) {
+          thread {
+            id
+            isResolved
+          }
+        }
+      }
+    `;
+    await this.client.graphql(mutation, { threadId });
+  }
+
   async setPullRequestComments(
     botTag: string,
     reviewsJson: string,
@@ -465,14 +503,17 @@ These issues were reported in a previous round and already resolved/closed. Do *
   ): Promise<PostedReviewThread[]> {
     const posted: PostedReviewThread[] = [];
     const reviewsObject = JSON.parse(reviewsJson) as { reviews: CodeReviewItem[] };
-    const newReviews = (reviewsObject.reviews ?? []).filter((review) => {
-      const normalizedPath = review.fileName.replace(/^\/+/, '');
-      return !existingKeys.has(`${normalizedPath}|line:${review.lineNumber}`);
-    });
+    const reviews = (reviewsObject.reviews ?? []).filter(isPublishableReview);
+    const newReviews = reviews.filter((review) => !isDuplicateReview(review, existingKeys));
 
     if (newReviews.length === 0) {
       log('All comments already exist. No new comments to post.');
       return posted;
+    }
+
+    const skipped = reviews.length - newReviews.length;
+    if (skipped > 0) {
+      log(`Skipping ${skipped} duplicate comment(s).`);
     }
 
     const sha = this.headRefOid;
@@ -528,9 +569,9 @@ These issues were reported in a previous round and already resolved/closed. Do *
     const normalizedSummary = summaryText.replace(/\s+/g, ' ').trim();
     for (const c of existingComments) {
       const commentContent = c.comments?.[0]?.content ?? '';
-      if (commentContent.includes(botTag) && commentContent.includes('<!-- review-summary -->')) {
+      if (commentContent.includes(botTag) && commentContent.includes(REVIEW_SUMMARY_MARKER)) {
         let existing = commentContent.replaceAll(botTag, '');
-        existing = existing.replace('<!-- review-summary -->', '');
+        existing = existing.replace(REVIEW_SUMMARY_MARKER, '');
         existing = existing.replace(/\s+/g, ' ').trim();
         if (existing === normalizedSummary) {
           log('Review summary already posted with identical content. Skipping.');
@@ -539,7 +580,7 @@ These issues were reported in a previous round and already resolved/closed. Do *
       }
     }
 
-    const commentBody = [botTag, '<!-- review-summary -->', '', summaryText.trim()].join('\n');
+    const commentBody = [botTag, REVIEW_SUMMARY_MARKER, '', summaryText.trim()].join('\n');
     try {
       const path = `/repos/${this.config.organization}/${this.config.repositoryName}/issues/${this.config.pullRequestId}/comments`;
       await this.client.restPost(path, { body: commentBody });
@@ -561,7 +602,7 @@ These issues were reported in a previous round and already resolved/closed. Do *
       const comment = t.comments?.[0];
       if (!comment || comment.isDeleted) continue;
 
-      if (comment.content.includes(botTag) && comment.content.includes('<!-- reviewer-round-state -->')) {
+      if (comment.content.includes(botTag) && comment.content.includes(ROUND_STATE_MARKER)) {
         const match = comment.content.match(/Rodada:\s*(\d+)/i);
         const round = match ? Number.parseInt(match[1], 10) : 0;
         return {
@@ -581,35 +622,7 @@ These issues were reported in a previous round and already resolved/closed. Do *
     existing: RoundStateLocation,
     log: (msg: string) => void,
   ): Promise<void> {
-    const content = [
-      botTag,
-      '<!-- reviewer-round-state -->',
-      '',
-      `**Estado da revisão automática** — Rodada: ${input.currentRound}${input.maxRounds > 0 ? ` / ${input.maxRounds}` : ''}`,
-    ];
-
-    if (input.escalate) {
-      content.push(
-        '',
-        '🚦 **Orçamento de rodadas atingido — revisão automática pausada.**',
-        '',
-        `O ciclo automático de correção atingiu ${input.currentRound} rodadas (limite ${input.maxRounds}). ` +
-          'Para evitar loop infinito de fix→review, novos apontamentos **não-críticos** deixam de ser publicados automaticamente.',
-        '',
-      );
-      if (input.suppressedCount > 0) {
-        content.push(
-          `Nesta rodada foram suprimidos **${input.suppressedCount} apontamento(s) não-crítico(s)** (warning/suggestion). ` +
-            'Apenas achados **critical** seguem sendo publicados.',
-          '',
-        );
-      }
-      content.push(
-        '👤 **Ação recomendada:** revisão humana das threads abertas restantes; decida manualmente o que corrigir e conclua a PR.',
-      );
-    }
-
-    const bodyContent = content.join('\n');
+    const bodyContent = buildRoundStateComment(botTag, input);
 
     if (existing.commentId != null) {
       const path = `/repos/${this.config.organization}/${this.config.repositoryName}/issues/comments/${existing.commentId}`;

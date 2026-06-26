@@ -1,7 +1,7 @@
 import { AdoClient } from './client.js';
 import { formatCommentForPosting } from './format-thread.js';
 import { filterPublishableReviews, isPublishableReview } from './review-validation.js';
-import { normalizeFilePath } from './utils.js';
+import { normalizeFilePath, reviewDedupKey as pathLineDedupKey } from './utils.js';
 import { RESOLUTION_MARKER, REVIEW_SUMMARY_MARKER } from '../git/markers.js';
 import { testReviewSummaryAlreadyPosted } from './review-context.js';
 import type {
@@ -17,7 +17,7 @@ import type {
 } from './types.js';
 
 function reviewDedupKey(review: Pick<CodeReviewItem, 'fileName' | 'lineNumber'>): string {
-  return `${normalizeFilePath(review.fileName)}|line:${review.lineNumber}`;
+  return pathLineDedupKey(review.fileName, review.lineNumber);
 }
 
 export function parseCodeReviewResponse(raw: CodeReviewResponse): ParsedCodeReviewResponse {
@@ -116,12 +116,11 @@ export function getCodeReviewPostingPlan(
   };
 }
 
-function isDuplicateReview(review: CodeReviewItem, existingKeys: Map<string, boolean>): boolean {
-  const normalizedPath = normalizeFilePath(review.fileName);
-  return existingKeys.has(`${normalizedPath}|line:${review.lineNumber}`);
+export function isDuplicateReview(review: CodeReviewItem, existingKeys: Map<string, boolean>): boolean {
+  return existingKeys.has(reviewDedupKey(review));
 }
 
-function matchesResolvedItem(threadInfo: ActiveThreadInfo, item: ResolvedThreadItem): boolean {
+export function matchesResolvedItem(threadInfo: ActiveThreadInfo, item: ResolvedThreadItem): boolean {
   if (item.threadId != null && String(item.threadId) === threadInfo.threadId) {
     return true;
   }
@@ -132,7 +131,7 @@ function matchesResolvedItem(threadInfo: ActiveThreadInfo, item: ResolvedThreadI
   return false;
 }
 
-function filterValidResolvedItems(resolvedItems: ResolvedThreadItem[]): ResolvedThreadItem[] {
+export function filterValidResolvedItems(resolvedItems: ResolvedThreadItem[]): ResolvedThreadItem[] {
   return resolvedItems.filter(
     (item) =>
       item.threadId != null ||
@@ -140,7 +139,7 @@ function filterValidResolvedItems(resolvedItems: ResolvedThreadItem[]): Resolved
   );
 }
 
-function isActiveOrPendingStatus(status: string): boolean {
+export function isActiveOrPendingStatus(status: string): boolean {
   const normalized = status.toLowerCase();
   return normalized === 'active' || normalized === 'pending';
 }
