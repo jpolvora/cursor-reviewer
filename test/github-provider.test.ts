@@ -101,6 +101,49 @@ describe('GitHub parity — resolução de threads', () => {
   });
 });
 
+describe('GitHub parity — hasResolutionReply não ativado pelo comentário raiz', () => {
+  it('não marca hasResolutionReply quando só o comentário raiz contém o marcador', () => {
+    // O primeiro comentário (databaseId === 100) é o review do bot.
+    // Se analysis/suggestedFix menciona o marcador, NÃO deve ser tratado como reply.
+    const firstDbId = 100;
+    const reviewBody = [
+      BOT,
+      '⚠️ **WARNING:** threadHasResolutionReply pode auto-resolver.',
+      `Veja ${RESOLUTION_MARKER} no código`,
+    ].join('\n');
+
+    // Simula o trecho de github.ts: comments.some(c => c.databaseId !== firstComment.databaseId && ...)
+    const comments = [{ databaseId: firstDbId, body: reviewBody }];
+    const firstComment = comments[0];
+    const hasReply = comments.some(
+      (c) =>
+        c.databaseId !== firstComment.databaseId &&
+        c.body.includes(BOT) &&
+        commentBodyHasResolutionReply(c.body, BOT),
+    );
+    assert.equal(hasReply, false);
+  });
+
+  it('marca hasResolutionReply quando reply (id diferente) contém o marcador', () => {
+    const firstDbId = 100;
+    const reviewBody = `${BOT}\n⚠️ **WARNING:** issue real`;
+    const replyBody = `${BOT}\n${RESOLUTION_MARKER}\ncorrigido`;
+
+    const comments = [
+      { databaseId: firstDbId, body: reviewBody },
+      { databaseId: 101, body: replyBody },
+    ];
+    const firstComment = comments[0];
+    const hasReply = comments.some(
+      (c) =>
+        c.databaseId !== firstComment.databaseId &&
+        c.body.includes(BOT) &&
+        commentBodyHasResolutionReply(c.body, BOT),
+    );
+    assert.equal(hasReply, true);
+  });
+});
+
 describe('GitHub parity — marcadores de resolução', () => {
   it('detecta marcador canônico ADO', () => {
     assert.equal(

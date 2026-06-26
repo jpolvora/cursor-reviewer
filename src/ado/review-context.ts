@@ -28,10 +28,11 @@ export function getReviewSummaryFromComment(content: string, botTag: string): st
   return summary;
 }
 
-function threadHasResolutionReply(thread: { comments: Array<{ content: string; isDeleted?: boolean }> }, botTag: string): boolean {
+function threadHasResolutionReply(thread: { comments: Array<{ content: string; isDeleted?: boolean; parentCommentId: number }> }, botTag: string): boolean {
   return thread.comments.some(
     (comment) =>
       !comment.isDeleted &&
+      comment.parentCommentId !== 0 &&
       commentHasBotTag(comment.content, botTag, 'contains') &&
       commentBodyHasResolutionReply(comment.content, botTag),
   );

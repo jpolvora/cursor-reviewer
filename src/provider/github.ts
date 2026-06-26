@@ -129,6 +129,7 @@ export class GithubProvider implements PlatformProvider {
               botCommentId: firstComment.databaseId,
               hasResolutionReply: comments.some(
                 (c) =>
+                  c.databaseId !== firstComment.databaseId &&
                   commentHasBotTag(c.body, botTag, 'contains') &&
                   commentBodyHasResolutionReply(c.body, botTag),
               ),
