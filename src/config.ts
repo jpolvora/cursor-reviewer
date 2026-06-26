@@ -648,8 +648,7 @@ export function loadConfig(argv: string[] = process.argv.slice(2)): ReviewerConf
     stackName = stackConfig.name;
     stackSource = detected ? 'detected' : 'fallback';
     customPromptContent = undefined; // descarta o prompt customizado com problema
-    includePatternsResetByFallback =
-      originalStack.trim().toLowerCase() === 'custom' && Boolean(includePatternsVal);
+    includePatternsResetByFallback = Boolean(includePatternsVal);
 
     console.warn('\x1b[33m%s\x1b[0m', `\n⚠️  [Cursor Reviewer] AVISO DE CONFIGURAÇÃO DE STACK/PROMPT:`);
     console.warn('\x1b[33m%s\x1b[0m', `   ${customStackError.message}`);

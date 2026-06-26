@@ -41,15 +41,24 @@ export function parseCodeReviewResponse(raw: CodeReviewResponse): ParsedCodeRevi
     if (review.relatedOccurrences && review.relatedOccurrences.length > 0) {
       for (const occ of review.relatedOccurrences) {
         const occKey = reviewDedupKey(occ);
-        if (seenKeys.has(occKey)) continue;
-        seenKeys.add(occKey);
-        flattenedIncoming.push({
+        const flattenedOcc: CodeReviewItem = {
           ...review,
           fileName: occ.fileName,
           lineNumber: occ.lineNumber,
           relatedOccurrences: undefined,
           comment: `*(Ocorrência similar identificada)*\n\n${review.comment}`,
-        });
+        };
+        if (seenKeys.has(occKey)) {
+          if (isPublishableReview(flattenedOcc)) {
+            const idx = flattenedIncoming.findIndex((r) => reviewDedupKey(r) === occKey);
+            if (idx >= 0 && !isPublishableReview(flattenedIncoming[idx]!)) {
+              flattenedIncoming[idx] = flattenedOcc;
+            }
+          }
+          continue;
+        }
+        seenKeys.add(occKey);
+        flattenedIncoming.push(flattenedOcc);
       }
     }
   }
