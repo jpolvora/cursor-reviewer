@@ -5,7 +5,7 @@ description: Code review agêntica executada pelo próprio harness/IDE (opencode
 
 # Skill — code-review-self
 
-Esta skill recria, dentro do harness que a executa (opencode/IDE), o comportamento do runner `cursor-reviewer`定义 em `src/index.ts`. Em vez de acionar o `@cursor/sdk` via `src/agent/stream.ts`, **o próprio agente deste harness assume o papel do Revisor de Código Sênior** e executa o fluxo equivalente a `main()` usando suas tools nativas (`read`, `grep`, `glob`, `bash` para git).
+Esta skill recria, dentro do harness que a executa (opencode/IDE), o comportamento do runner `cursor-reviewer` definido em `src/index.ts`. Em vez de acionar o `@cursor/sdk` via `src/agent/stream.ts`, **o próprio agente deste harness assume o papel do Revisor de Código Sênior** e executa o fluxo equivalente a `main()` usando suas tools nativas (`read`, `grep`, `glob`, `bash` para git).
 
 O contrato de saída, o gate de publicação, o controle de rodadas/escalonamento, o modo somente-leitura e o prompt de duas fases são **idênticos** ao pipeline original. Os arquivos canônicos permanecem em `skills/SYSTEM_PROMPT.md`, `skills/CODE_REVIEW.md` e `skills/stacks/*.md` — **leia-os** ao iniciar para alinhar 1:1 com o runner.
 
@@ -211,7 +211,7 @@ Leia o estado de rodada das threads existentes via script `fetch_threads.cjs` (G
 ## 10. Formatação de comentário (idêntico a `src/ado/format-thread.ts`)
 
 Quando for publicar (não no LOG-ONLY), cada thread formatada:
-- Prefixa `{botTag}` (default `cursor-reviewer`) + `{severityLabel} {body}`.
+- Prefixa `{botTag}` (default `[Cursor Reviewer]`) + `{severityLabel} {body}`.
 - `suggestedFix`: bloco "Correção sugerida" com cerca por linguagem. No ADO, ` ```suggestion ` normalizado para ` ``` ` (sem botão apply). No GitHub, mantenha ` ```suggestion ` para habilitar apply.
 - Bloco `<details><summary>🔍 Detalhes da Análise IA</summary>` contendo Score/Ação dev, Análise, Caminhos analisados.
 
