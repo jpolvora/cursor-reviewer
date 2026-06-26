@@ -794,8 +794,6 @@ function resolveCustomPromptContent(customPromptVal: string, repoRoot: string): 
   }
 
   const looksLikeFilePath =
-    trimmed.endsWith('.md') ||
-    trimmed.endsWith('.txt') ||
     trimmed.startsWith('./') ||
     trimmed.startsWith('.\\') ||
     trimmed.startsWith('../') ||
@@ -803,7 +801,9 @@ function resolveCustomPromptContent(customPromptVal: string, repoRoot: string): 
     /^[A-Za-z]:\\/.test(trimmed) ||
     /^[A-Za-z]:\//.test(trimmed) ||
     trimmed.startsWith('/') ||
-    trimmed.startsWith('\\');
+    trimmed.startsWith('\\') ||
+    ((trimmed.endsWith('.md') || trimmed.endsWith('.txt')) &&
+      (trimmed.includes('/') || trimmed.includes('\\')));
 
   if (looksLikeFilePath) {
     throw new Error(`Arquivo de prompt customizado não encontrado: "${trimmed}"`);

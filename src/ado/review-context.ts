@@ -16,7 +16,7 @@ import type {
   ReviewContextResult,
 } from './types.js';
 
-function getReviewSummaryFromComment(content: string, botTag: string): string {
+export function getReviewSummaryFromComment(content: string, botTag: string): string {
   let summary = content.replace(/<details>[\s\S]*?<\/details>/gi, '');
   summary = summary.replace(/```[\s\S]*?```/g, '');
   summary = summary.replaceAll(botTag, '');

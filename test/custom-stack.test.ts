@@ -125,7 +125,7 @@ describe('Custom Stack and Prompts', () => {
           '--stack',
           'custom',
           '--custom-prompt',
-          'inexistente-prompt-file.md',
+          './inexistente-prompt-file.md',
         ]);
         assert.equal(config.stack, 'TypeScript');
         assert.equal(config.customPromptContent, undefined);
@@ -376,7 +376,7 @@ describe('Custom Stack and Prompts', () => {
           '--stack',
           'custom',
           '--custom-prompt',
-          'inexistente-prompt-file.md',
+          './inexistente-prompt-file.md',
           '--include-patterns',
           '**/*.py,**/*.go',
         ]);

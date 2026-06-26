@@ -2,6 +2,7 @@ import { writeFileSync } from 'node:fs';
 import type { ReviewerConfig } from '../config.js';
 import type { Logger } from '../logger.js';
 import { formatCommentForPosting } from '../ado/format-thread.js';
+import { getReviewSummaryFromComment } from '../ado/review-context.js';
 import type { PlatformProvider } from './types.js';
 import type {
   ActiveThreadInfo,
@@ -248,7 +249,7 @@ export class GithubProvider implements PlatformProvider {
           existingKeys.set(`${filePath}|line:${lineNumber}`, true);
         }
 
-        const summary = rawContent.replace(botTag, '').trim().slice(0, 150);
+        const summary = getReviewSummaryFromComment(rawContent, botTag);
 
         if (isBot) {
           if (!isResolved) {
