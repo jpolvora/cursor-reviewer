@@ -15,7 +15,7 @@ Esta skill orienta o agente no fluxo completo de resolução automática de issu
 Execute o script utilitário de busca de threads passando o ID da Pull Request correspondente. Esse script utiliza a API GraphQL do GitHub para coletar threads de revisão de código que continuam abertas/não resolvidas.
 
 ```bash
-node .agents/skills/solve-pr/scripts/fetch_threads.js <PR_ID>
+node .agents/skills/solve-pr/scripts/fetch_threads.cjs <PR_ID>
 ```
 > [!IMPORTANT]
 > Certifique-se de que a variável de ambiente `GITHUB_TOKEN` ou `GH_TOKEN` está definida no ambiente com as permissões de leitura/escrita apropriadas para o repositório.
@@ -43,9 +43,9 @@ npm test
 ```
 
 ### Passo 6: Responder e Resolver as Threads no GitHub
-Após comprovar que a solução funciona e os testes passam, responda com uma nota explicativa da correção e marque as threads afetadas como resolvidas (fechadas) no GitHub. Use o script utilitário `resolve_thread.js`:
+Após comprovar que a solução funciona e os testes passam, responda com uma nota explicativa da correção e marque as threads afetadas como resolvidas (fechadas) no GitHub. Use o script utilitário `resolve_thread.cjs`:
 ```bash
-node .agents/skills/solve-pr/scripts/resolve_thread.js <THREAD_ID> "Nota explicando como a issue foi resolvida"
+node .agents/skills/solve-pr/scripts/resolve_thread.cjs <THREAD_ID> "Nota explicando como a issue foi resolvida"
 ```
 Isso evita que o revisor analise novamente e alerte sobre um problema que já foi corrigido.
 
