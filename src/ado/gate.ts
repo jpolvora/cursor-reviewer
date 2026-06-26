@@ -1,5 +1,9 @@
 import type { CodeReviewItem, GateEvaluation, PendingPrThread, ReviewSeverity } from './types.js';
-import { formatTokenCount, type TokenUsageTotals } from '../agent/token-usage.js';
+import {
+  formatTokenCount,
+  hasEngineMetrics,
+} from '../agent/metrics-display.js';
+import { ENGINE_METRIC_KEYS } from '../engine/types.js';
 
 export function countSeverities(reviews: CodeReviewItem[]): Record<ReviewSeverity, number> {
   const counts: Record<ReviewSeverity, number> = { critical: 0, warning: 0, suggestion: 0 };
@@ -61,7 +65,7 @@ export function formatGateSummary(
   agentId: string,
   runId: string,
   dryRun: boolean,
-  tokenUsage?: TokenUsageTotals,
+  metrics?: Record<string, number>,
 ): string {
   const statusIcon = gate.shouldFail ? '⚠️' : '✅';
   const statusLabel = gate.shouldFail ? 'COM ISSUES PENDENTES' : 'SEM ISSUES';
@@ -81,20 +85,26 @@ export function formatGateSummary(
     `│ Severidades:         🛑 ${gate.severities.critical}  ⚠️ ${gate.severities.warning}  💡 ${gate.severities.suggestion}`,
   ];
 
-  if (tokenUsage && (tokenUsage.hasAuthoritativeUsage || tokenUsage.totalTokens > 0)) {
+  if (hasEngineMetrics(metrics)) {
+    lines.push('├───────────────────────────────────────────────');
+    const input = metrics![ENGINE_METRIC_KEYS.inputTokens] ?? 0;
+    const output = metrics![ENGINE_METRIC_KEYS.outputTokens] ?? 0;
+    const total = metrics![ENGINE_METRIC_KEYS.totalTokens] ?? input + output;
+    const cacheRead = metrics![ENGINE_METRIC_KEYS.cacheReadTokens] ?? 0;
+    const cacheWrite = metrics![ENGINE_METRIC_KEYS.cacheWriteTokens] ?? 0;
+
     lines.push(
-      '├───────────────────────────────────────────────',
-      `│ Tokens input:        ${formatTokenCount(tokenUsage.inputTokens)}`,
-      `│ Tokens output:       ${formatTokenCount(tokenUsage.outputTokens)}`,
-      `│ Tokens total:        ${formatTokenCount(tokenUsage.totalTokens)}`,
+      `│ Tokens input:        ${formatTokenCount(input)}`,
+      `│ Tokens output:       ${formatTokenCount(output)}`,
+      `│ Tokens total:        ${formatTokenCount(total)}`,
     );
-    if (tokenUsage.cacheReadTokens > 0 || tokenUsage.cacheWriteTokens > 0) {
+    if (cacheRead > 0 || cacheWrite > 0) {
       lines.push(
-        `│ Cache read:          ${formatTokenCount(tokenUsage.cacheReadTokens)}`,
-        `│ Cache write:         ${formatTokenCount(tokenUsage.cacheWriteTokens)}`,
+        `│ Cache read:          ${formatTokenCount(cacheRead)}`,
+        `│ Cache write:         ${formatTokenCount(cacheWrite)}`,
       );
     }
-  } else if (tokenUsage) {
+  } else if (metrics) {
     lines.push('├───────────────────────────────────────────────', '│ Tokens:              (não reportados)');
   }
 

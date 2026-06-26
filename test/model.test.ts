@@ -8,7 +8,7 @@ import {
   isSupportedCursorReviewerModelId,
   listSupportedCursorReviewerModelIds,
   resolveAgentModelSelection,
-} from '../src/agent/model.js';
+} from '../src/engine/cursor-sdk/model.js';
 
 describe('CursorReviewerModelId', () => {
   it('usa composer-2.5 como default canônico', () => {

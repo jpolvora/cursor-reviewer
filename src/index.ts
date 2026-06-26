@@ -12,7 +12,8 @@ import {
 } from './ado/round-state.js';
 import type { CodeReviewItem, PendingPrThread, ReviewContextResult } from './ado/types.js';
 import { runCodeReviewAgent } from './agent/runner.js';
-import { EMPTY_TOKEN_USAGE } from './agent/token-usage.js';
+import { EMPTY_METRICS } from './engine/types.js';
+import { getEngine } from './engine/index.js';
 import { loadConfig, ProjectValidationError } from './config.js';
 import { buildDiffPromptSection } from './git/diff-prompt.js';
 import {
@@ -60,6 +61,7 @@ async function main(): Promise<void> {
   logger.section(`${config.projectName} Cursor Reviewer v${config.version}`);
   logger.info(`Modo: ${config.dryRun ? 'DRY-RUN' : 'PIPELINE'}`);
   logger.info(`Model: ${config.model}`);
+  logger.info(`Engine: ${config.engine}`);
   const stackSourceLabel =
     config.stackSource === 'cli'
       ? 'configurada via CLI'
@@ -192,6 +194,8 @@ async function main(): Promise<void> {
     prDescriptionContext = prDetails.contextForLlm;
   }
 
+  const engine = getEngine(config);
+
   const agentStartTime = performance.now();
   if (diffStats.fileCount > 0 && config.pullRequestId > 0 && !hasContext) {
     logger.info(`Iniciando revisão somente leitura da PR #${config.pullRequestId}.`);
@@ -209,13 +213,15 @@ async function main(): Promise<void> {
             diffStats,
             gitContext,
           },
+          engine,
           logger,
         )
       : {
           fullText: '{"reviews":[],"resolvedThreads":[],"reviewSummary":""}',
-          agentId: 'skipped',
+          sessionId: 'skipped',
           runId: 'no-diff',
-          tokenUsage: EMPTY_TOKEN_USAGE,
+          status: 'skipped',
+          metrics: EMPTY_METRICS,
         };
   const agentElapsed = performance.now() - agentStartTime;
 
@@ -402,14 +408,14 @@ async function main(): Promise<void> {
 
   const totalElapsed = performance.now() - startTime;
   logger.section('Concluído');
-  logger.info(`Agent: ${agentResult.agentId} | Run: ${agentResult.runId}`);
+  logger.info(`Agent: ${agentResult.sessionId} | Run: ${agentResult.runId}`);
   logger.info(`Tempo total: ${formatElapsedMs(totalElapsed)}`);
   console.log(
-    formatGateSummary(gate, agentResult.agentId, agentResult.runId, isDryRunOrNoContext, agentResult.tokenUsage),
+    formatGateSummary(gate, agentResult.sessionId, agentResult.runId, isDryRunOrNoContext, agentResult.metrics),
   );
 
   // Visibilidade na build.
-  provider.emitPipelineReviewOutput(gate, postedReviews, isDryRunOrNoContext, agentResult.tokenUsage);
+  provider.emitPipelineReviewOutput(gate, postedReviews, isDryRunOrNoContext, agentResult.metrics);
 }
 
 main()

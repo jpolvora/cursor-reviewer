@@ -4,7 +4,7 @@ import {
   EMPTY_TOKEN_USAGE,
   formatTokenUsageSummary,
   TokenUsageAccumulator,
-} from '../src/agent/token-usage.js';
+} from '../src/engine/cursor-sdk/token-usage.js';
 
 describe('TokenUsageAccumulator', () => {
   it('inicia zerado após reset', () => {

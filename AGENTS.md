@@ -19,7 +19,7 @@ Guia operacional para agentes de IA neste repositório. Dois perfis de uso:
 ### Modo de operação
 - Estritamente **somente leitura**. Proibido: commits, push, alteração de arquivos no repositório alvo, formatters/linters.
 - Permitido: `read_file`, `grep_search`, `glob`, busca semântica, inspeção de diff.
-- O sandbox (`local.sandboxOptions.enabled` em `src/agent/stream.ts`) reforça esse contrato no nível do SDK.
+- O sandbox (`local.sandboxOptions.enabled` em `src/engine/cursor-sdk/stream.ts`) reforça esse contrato no nível do SDK.
 
 ### Análise em duas fases
 
@@ -96,8 +96,9 @@ O runner se autoexclui do diff por padrão (evita loops). Defina `CURSOR_REVIEWE
 |---|---|
 | `src/index.ts` | Ponto de entrada: prepara workspace, coleta contexto de PR, dispara agente, posta comentários. |
 | `src/config.ts` | Argumentos CLI e variáveis de ambiente. |
-| `src/agent/stream.ts` | **Único acoplamento ao `@cursor/sdk`.** Streaming, timeout, sandbox, token usage. |
-| `src/agent/runner.ts` | Constrói o prompt e chama `stream.ts`. |
+| `src/engine/` | Interface `ExecutionEngine` + factory `getEngine()`. Engines: `cursor-sdk` (default), `opencode` (stub). |
+| `src/engine/cursor-sdk/stream.ts` | **Acoplamento ao `@cursor/sdk`.** Streaming, timeout, sandbox, token usage. |
+| `src/agent/runner.ts` | Constrói o prompt e delega ao `ExecutionEngine` injetado. |
 | `src/provider/` | Interface `PlatformProvider` + implementações `AdoProvider` e `GithubProvider`. |
 | `src/ado/` | Gate (`gate.ts`), validação (`review-validation.ts`), formatação (`format-thread.ts`), rodadas (`round-state.ts`). |
 | `skills/stacks/` | Recomendações por stack em Markdown. |

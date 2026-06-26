@@ -33,7 +33,11 @@ import type {
   ResolvedThreadItem,
   ReviewContextResult,
 } from '../ado/types.js';
-import type { TokenUsageTotals } from '../agent/token-usage.js';
+import {
+  formatTokenCount,
+  hasEngineMetrics,
+} from '../agent/metrics-display.js';
+import { ENGINE_METRIC_KEYS } from '../engine/types.js';
 
 export class GithubProvider implements PlatformProvider {
   readonly name = 'github';
@@ -483,7 +487,7 @@ These issues were reported in a previous round and already resolved/closed. Do *
     gate: GateEvaluation,
     reviews: CodeReviewItem[],
     dryRun: boolean,
-    tokenUsage?: TokenUsageTotals,
+    metrics?: Record<string, number>,
     log: (msg: string) => void = console.log,
   ): void {
     for (const r of reviews) {
@@ -497,7 +501,7 @@ These issues were reported in a previous round and already resolved/closed. Do *
     const summaryFile = process.env.GITHUB_STEP_SUMMARY;
     if (summaryFile) {
       try {
-        const markdown = this.buildGHSummaryMarkdown(gate, reviews, dryRun, tokenUsage);
+        const markdown = this.buildGHSummaryMarkdown(gate, reviews, dryRun, metrics);
         writeFileSync(summaryFile, markdown, { encoding: 'utf8', flag: 'a' });
       } catch (err) {
         log(`Warning: failed to write GITHUB_STEP_SUMMARY: ${String(err)}`);
@@ -509,7 +513,7 @@ These issues were reported in a previous round and already resolved/closed. Do *
     gate: GateEvaluation,
     reviews: CodeReviewItem[],
     dryRun: boolean,
-    tokenUsage?: TokenUsageTotals,
+    metrics?: Record<string, number>,
   ): string {
     const lines: string[] = [];
     lines.push('### Cursor Reviewer Summary');
@@ -523,9 +527,12 @@ These issues were reported in a previous round and already resolved/closed. Do *
       `- **Severities:** 🛑 ${gate.severities.critical} · ⚠️ ${gate.severities.warning} · 💡 ${gate.severities.suggestion}`,
     );
 
-    if (tokenUsage) {
+    if (hasEngineMetrics(metrics)) {
+      const input = metrics![ENGINE_METRIC_KEYS.inputTokens] ?? 0;
+      const output = metrics![ENGINE_METRIC_KEYS.outputTokens] ?? 0;
+      const total = metrics![ENGINE_METRIC_KEYS.totalTokens] ?? input + output;
       lines.push(
-        `- **Tokens total:** ${tokenUsage.totalTokens.toLocaleString()} (Input: ${tokenUsage.inputTokens.toLocaleString()}, Output: ${tokenUsage.outputTokens.toLocaleString()})`,
+        `- **Tokens total:** ${formatTokenCount(total)} (Input: ${formatTokenCount(input)}, Output: ${formatTokenCount(output)})`,
       );
     }
     lines.push('');

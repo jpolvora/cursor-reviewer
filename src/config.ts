@@ -3,7 +3,8 @@ import { existsSync, readFileSync, realpathSync, readdirSync } from 'node:fs';
 import {
   assertSupportedCursorReviewerModelId,
   DEFAULT_CURSOR_REVIEWER_MODEL,
-} from './agent/model.js';
+} from './engine/cursor-sdk/model.js';
+import type { ReviewerEngineName } from './engine/types.js';
 import { detectSourceBranchRef } from './git/diff.js';
 import { ProjectValidationError, resolveProject } from './project.js';
 
@@ -159,6 +160,8 @@ export function detectStack(repoRoot: string): string | undefined {
 export interface ReviewerConfig {
   repoRoot: string;
   cursorApiKey: string;
+  /** Engine de execução LLM (default: cursor-sdk). */
+  engine: ReviewerEngineName;
   model: string;
   botTag: string;
   verbose: boolean;
@@ -224,6 +227,18 @@ const DEFAULT_MODEL = DEFAULT_CURSOR_REVIEWER_MODEL;
 const BASE_EXCLUDE = ['*/proxy/*', '*/bin/*', '*/obj/*', '*.md', '*.csproj', 'secret.txt'];
 
 const DEFAULT_MAX_ROUNDS = 5;
+const DEFAULT_ENGINE: ReviewerEngineName = 'cursor-sdk';
+
+function parseEngine(value: string | undefined): ReviewerEngineName {
+  const trimmed = value?.trim().toLowerCase() ?? '';
+  if (!trimmed || trimmed === 'cursor-sdk' || trimmed === 'cursor') {
+    return 'cursor-sdk';
+  }
+  if (trimmed === 'opencode') {
+    return 'opencode';
+  }
+  throw new Error(`Engine inválido: "${value}". Valores aceitos: cursor-sdk, opencode`);
+}
 
 /** Lê um inteiro >= 0 de env; usa fallback se ausente, inválido ou macro ADO. */
 function parseNonNegativeInt(value: string | undefined, fallback: number): number {
@@ -688,6 +703,7 @@ export function loadConfig(argv: string[] = process.argv.slice(2)): ReviewerConf
   return {
     repoRoot,
     cursorApiKey,
+    engine: parseEngine(process.env.CURSOR_REVIEWER_ENGINE),
     model: assertSupportedCursorReviewerModelId(
       resolveOptionalEnv(cli.model ?? process.env.CURSOR_REVIEWER_MODEL, DEFAULT_MODEL),
     ),
@@ -748,7 +764,8 @@ Pré-requisitos do projeto alvo (obrigatórios — o script encerra se ausentes)
   skills/CODE_REVIEW.md
   skills/SYSTEM_PROMPT.md
 
-Variáveis: CURSOR_API_KEY, CURSOR_REVIEWER_TARGET_BRANCH (default: refs/heads/master),
+Variáveis: CURSOR_API_KEY, CURSOR_REVIEWER_ENGINE (default: cursor-sdk),
+  CURSOR_REVIEWER_TARGET_BRANCH (default: refs/heads/master),
   CURSOR_REVIEWER_INCLUDE_UNCOMMITTED, CURSOR_REVIEWER_SEED_TEST,
   CURSOR_REVIEWER_REVIEW_SELF, CURSOR_REVIEWER_EXTRA_EXCLUDE_PATTERNS, ...
 

@@ -9,7 +9,6 @@ import type {
   PostedReviewThread,
 } from '../ado/types.js';
 import type { RoundStateLocation, RoundStateCommentInput } from '../ado/round-state.js';
-import type { TokenUsageTotals } from '../agent/token-usage.js';
 
 export interface PlatformProvider {
   readonly name: 'azuredevops' | 'github';
@@ -67,7 +66,7 @@ export interface PlatformProvider {
     gate: GateEvaluation,
     reviews: CodeReviewItem[],
     dryRun: boolean,
-    tokenUsage?: TokenUsageTotals,
+    metrics?: Record<string, number>,
     log?: (msg: string) => void,
   ): void;
 }

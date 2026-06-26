@@ -103,6 +103,47 @@ describe('loadConfig', () => {
     );
   });
 
+  it('usa cursor-sdk como engine default', () => {
+    withEnv(
+      {
+        CURSOR_API_KEY: 'cursor_test',
+        CURSOR_REVIEWER_ENGINE: undefined,
+      },
+      () => {
+        const config = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature']);
+        assert.equal(config.engine, 'cursor-sdk');
+      },
+    );
+  });
+
+  it('aceita CURSOR_REVIEWER_ENGINE=opencode', () => {
+    withEnv(
+      {
+        CURSOR_API_KEY: 'cursor_test',
+        CURSOR_REVIEWER_ENGINE: 'opencode',
+      },
+      () => {
+        const config = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature']);
+        assert.equal(config.engine, 'opencode');
+      },
+    );
+  });
+
+  it('rejeita engine inválido', () => {
+    withEnv(
+      {
+        CURSOR_API_KEY: 'cursor_test',
+        CURSOR_REVIEWER_ENGINE: 'invalid-engine',
+      },
+      () => {
+        assert.throws(
+          () => loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature']),
+          /Engine inválido/,
+        );
+      },
+    );
+  });
+
   it('detecta macro ADO não expandida', () => {
     assert.equal(isUnexpandedPipelineMacro('$(CURSOR_REVIEWER_MODEL)'), true);
     assert.equal(isUnexpandedPipelineMacro('composer-2.5'), false);

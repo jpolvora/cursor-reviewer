@@ -1,14 +1,14 @@
 import { Agent, CursorAgentError } from '@cursor/sdk';
 import type { LocalAgentOptions, Run } from '@cursor/sdk';
-import { logAgentPromptBeforeSend } from './log-prompt.js';
+import { logAgentPromptBeforeSend } from '../../agent/log-prompt.js';
+import type { ReviewerConfig } from '../../config.js';
+import type { Logger } from '../../logger.js';
 import { resolveAgentModelSelection } from './model.js';
 import {
   formatTokenUsageSummary,
   TokenUsageAccumulator,
   type TokenUsageTotals,
 } from './token-usage.js';
-import type { ReviewerConfig } from '../config.js';
-import type { Logger } from '../logger.js';
 
 export interface AgentRunResult {
   agentId: string;

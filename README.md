@@ -55,6 +55,7 @@ cp .env.example .env
 | `AZURE_DEVOPS_EXT_PAT` | Opcional | PAT do ADO com permissão de escrita em Code e leitura em Work Items. |
 | `GITHUB_TOKEN` ou `GH_TOKEN` | Opcional | Token de acesso para APIs do GitHub (REST/GraphQL). |
 | `CURSOR_REVIEWER_MODEL` | `composer-2.5` | Modelo LLM utilizado pelo agente (ex: `composer-2.5-fast`, `claude-4.6-sonnet-medium-thinking`). |
+| `CURSOR_REVIEWER_ENGINE` | `cursor-sdk` | Engine de execução LLM (`cursor-sdk` ou `opencode` — stub). |
 | `CURSOR_REVIEWER_TARGET_BRANCH`| `refs/heads/master` | Branch de comparação para gerar o diff git. |
 | `CURSOR_REVIEWER_BOT_TAG` | `[Cursor Reviewer]` | Tag de identificação do bot nos comentários da PR. |
 | `CURSOR_REVIEWER_MAX_ROUNDS` | `5` | Limite de iterações de correções antes do handoff humano (`0` desativa). |
@@ -356,7 +357,8 @@ Executa remotamente especificando a organização e projeto:
 *   `src/index.ts` : Orquestrador principal do fluxo de revisão.
 *   `src/config.ts` : Tratamento de argumentos da CLI e resolução de parâmetros de ambiente.
 *   `src/provider/` : Abstrações e integrações de APIs de plataformas (`github.ts` e `azuredevops.ts`).
-*   `src/agent/` : Código de conexão com o Cursor SDK, geração do prompt e tokens.
+*   `src/engine/` : Interface `ExecutionEngine`, factory `getEngine()` e adapters (`cursor-sdk`, `opencode` stub).
+*   `src/agent/` : Montagem do prompt e orquestração da chamada ao engine injetado.
 *   `src/ado/` : Regras de validação do gate, de rodadas, formatação de threads e helpers do ADO.
 *   `skills/` : Contratos de prompts estáticos do agente (`SYSTEM_PROMPT.md` e `CODE_REVIEW.md`) e subpasta `skills/stacks/` contendo os prompts complementares com as recomendações de cada stack.
 *   `.agents/skills/` : Skills agênticas do ecossistema do runner (`code-review-self`, `megabrain`, `solve-pr` e scripts auxiliares).

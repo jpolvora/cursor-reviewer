@@ -20,7 +20,6 @@ import type {
   ReviewContextResult,
 } from '../ado/types.js';
 import type { RoundStateCommentInput, RoundStateLocation } from '../ado/round-state.js';
-import type { TokenUsageTotals } from '../agent/token-usage.js';
 
 export class AdoProvider implements PlatformProvider {
   readonly name = 'azuredevops';
@@ -121,9 +120,9 @@ export class AdoProvider implements PlatformProvider {
     gate: GateEvaluation,
     reviews: CodeReviewItem[],
     dryRun: boolean,
-    tokenUsage?: TokenUsageTotals,
+    metrics?: Record<string, number>,
     log?: (msg: string) => void,
   ): void {
-    emitPipelineReviewOutput(gate, reviews, dryRun, tokenUsage, log);
+    emitPipelineReviewOutput(gate, reviews, dryRun, metrics, log);
   }
 }

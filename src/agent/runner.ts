@@ -1,20 +1,21 @@
 import type { ReviewerConfig } from '../config.js';
+import type { EngineRunResult, ExecutionEngine } from '../engine/types.js';
 import type { Logger } from '../logger.js';
 import { buildAgentPrompt, type PromptContext } from './prompt.js';
-import { runAgentStream, type AgentRunResult } from './stream.js';
 
-export type { AgentRunResult };
+export type { EngineRunResult };
 
 export async function runCodeReviewAgent(
   config: ReviewerConfig,
   context: PromptContext,
+  engine: ExecutionEngine,
   logger: Logger,
-): Promise<AgentRunResult> {
+): Promise<EngineRunResult> {
   const prompt = buildAgentPrompt(config, context);
 
   logger.info('Setting sources: project (harness do repositório)');
 
-  return runAgentStream(
+  return engine.run(
     config,
     {
       name: `${config.projectName} Cursor Reviewer`,
