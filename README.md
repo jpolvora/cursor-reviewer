@@ -68,7 +68,7 @@ Modelos: IDs do Cursor (`composer-2.5`, `claude-sonnet-4-6`, etc.). Validação 
 
 ### `opencode`
 
-Cliente para servidor [OpenCode](https://opencode.ai/docs/sdk/): sessão → `session.prompt` → resposta do agente. Credenciais de provedores ficam no **servidor** (`~/.local/share/opencode/auth.json`), não no `.env` do reviewer.
+Cliente para servidor [OpenCode](https://opencode.ai/docs/sdk/): sessão → `session.prompt` (com `model: { providerID, modelID }` derivado de `CURSOR_REVIEWER_MODEL`) → resposta do agente. Se o servidor rejeitar o model explícito, o engine repete o prompt usando o default do host. Credenciais ficam no **servidor** (`~/.local/share/opencode/auth.json`), não no `.env` do reviewer.
 
 **Modo A — servidor já em execução** (recomendado em dev):
 

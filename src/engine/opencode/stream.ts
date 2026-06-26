@@ -9,7 +9,11 @@ import { logAgentPromptBeforeSend } from '../../agent/log-prompt.js';
 import type { ReviewerConfig } from '../../config.js';
 import type { Logger } from '../../logger.js';
 import { ENGINE_METRIC_KEYS, EMPTY_METRICS } from '../types.js';
-import { resolveOpencodeModelSelection } from './model.js';
+import { type OpencodeModelSelection, resolveOpencodeModelSelection } from './model.js';
+import {
+  buildSessionPromptBody,
+  shouldFallbackSessionPromptWithoutModel,
+} from './prompt-body.js';
 
 export interface OpencodeRunResult {
   sessionId: string;
@@ -135,7 +139,6 @@ async function createRuntime(
 
   if (externalUrl) {
     logger.info(`OpenCode: conectando ao servidor existente em ${externalUrl}`);
-    logger.info('Modelo efetivo: configuração do servidor OpenCode (opencode.json / env do host)');
     return {
       client: createOpencodeClient({ baseUrl: externalUrl, directory }),
       close: () => {},
@@ -187,6 +190,49 @@ async function resolveSessionId(
   return session.id;
 }
 
+type SessionPromptResponse = {
+  info: AssistantMessage;
+  parts: Part[];
+};
+
+async function sendSessionPrompt(
+  client: OpencodeClient,
+  sessionId: string,
+  directory: string,
+  agentName: string,
+  prompt: string,
+  modelSelection: OpencodeModelSelection,
+  logger: Logger,
+): Promise<SessionPromptResponse> {
+  const withModel = await client.session.prompt({
+    path: { id: sessionId },
+    query: { directory },
+    body: buildSessionPromptBody(agentName, prompt, modelSelection),
+  });
+
+  if (!withModel.error) {
+    logger.info(`Modelo no prompt: ${modelSelection.composite}`);
+    return assertResponseData(withModel, 'session.prompt');
+  }
+
+  if (!shouldFallbackSessionPromptWithoutModel(withModel.error)) {
+    throw new Error(`session.prompt: ${JSON.stringify(withModel.error)}`);
+  }
+
+  logger.warn(
+    `session.prompt com model=${modelSelection.composite} rejeitado pelo servidor; ` +
+      `usando default do OpenCode. Erro: ${JSON.stringify(withModel.error)}`,
+  );
+
+  const fallback = await client.session.prompt({
+    path: { id: sessionId },
+    query: { directory },
+    body: buildSessionPromptBody(agentName, prompt),
+  });
+
+  return assertResponseData(fallback, 'session.prompt (fallback sem model)');
+}
+
 export async function runOpencodeStream(
   config: ReviewerConfig,
   options: RunOpencodeOptions,
@@ -218,16 +264,15 @@ export async function runOpencodeStream(
 
     sessionId = await resolveSessionId(client, options, directory, logger);
 
-    const promptResult = await client.session.prompt({
-      path: { id: sessionId },
-      query: { directory },
-      body: {
-        agent: agentName,
-        parts: [{ type: 'text', text: options.prompt }],
-      },
-    });
-
-    const response = assertResponseData(promptResult, 'session.prompt');
+    const response = await sendSessionPrompt(
+      client,
+      sessionId,
+      directory,
+      agentName,
+      options.prompt,
+      modelSelection,
+      logger,
+    );
     const info = response.info;
     const fullText = extractTextFromParts(response.parts);
 
