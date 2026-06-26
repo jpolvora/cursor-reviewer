@@ -320,4 +320,69 @@ describe('Custom Stack and Prompts', () => {
     assert.ok(prompt.includes('# Recomendações Específicas da Stack (Custom)'));
     assert.ok(prompt.includes('Este é o prompt customizado secreto 12345'));
   });
+
+  it('carrega o prompt customizado inline com barra que não representa arquivo existente', () => {
+    withEnv(
+      {
+        CURSOR_API_KEY: 'cursor_test',
+      },
+      () => {
+        const config = loadConfig([
+          '--dry-run',
+          '--source-branch',
+          'refs/heads/feature',
+          '--stack',
+          'custom',
+          '--custom-prompt',
+          'Revisar APIs HTTP/REST e GraphQL',
+        ]);
+        assert.equal(config.stack, 'Custom');
+        assert.equal(config.customPromptContent, 'Revisar APIs HTTP/REST e GraphQL');
+      },
+    );
+  });
+
+  it('bloqueia e cai para o fallback se o caminho do prompt customizado tentar ler arquivos fora do repositório', () => {
+    withEnv(
+      {
+        CURSOR_API_KEY: 'cursor_test',
+      },
+      () => {
+        const config = loadConfig([
+          '--dry-run',
+          '--source-branch',
+          'refs/heads/feature',
+          '--stack',
+          'custom',
+          '--custom-prompt',
+          '../outro-repo/.env',
+        ]);
+        assert.equal(config.stack, 'TypeScript');
+        assert.equal(config.customPromptContent, undefined);
+      },
+    );
+  });
+
+  it('reseta includePatterns para o default da stack de fallback se a stack Custom falhar e cair no fallback', () => {
+    withEnv(
+      {
+        CURSOR_API_KEY: 'cursor_test',
+      },
+      () => {
+        const config = loadConfig([
+          '--dry-run',
+          '--source-branch',
+          'refs/heads/feature',
+          '--stack',
+          'custom',
+          '--custom-prompt',
+          'inexistente-prompt-file.md',
+          '--include-patterns',
+          '**/*.py,**/*.go',
+        ]);
+        assert.equal(config.stack, 'TypeScript');
+        assert.deepEqual(config.includePatterns, ['**/*.ts', '**/*.tsx', '**/*.json', '*.ts', '*.tsx', '*.json']);
+      },
+    );
+  });
 });

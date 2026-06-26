@@ -604,6 +604,9 @@ export function loadConfig(argv: string[] = process.argv.slice(2)): ReviewerConf
   const rawCustomPrompt = cli.customPrompt ?? process.env.CURSOR_REVIEWER_CUSTOM_PROMPT?.trim() ?? '';
   const customPromptVal = rawCustomPrompt && !isUnexpandedPipelineMacro(rawCustomPrompt) ? rawCustomPrompt : '';
 
+  const rawIncludePatterns = cli.includePatterns ?? process.env.CURSOR_REVIEWER_INCLUDE_PATTERNS?.trim() ?? '';
+  const includePatternsVal = rawIncludePatterns && !isUnexpandedPipelineMacro(rawIncludePatterns) ? rawIncludePatterns : '';
+
   let customStackError: Error | null = null;
 
   if (!stackConfig) {
@@ -634,6 +637,8 @@ export function loadConfig(argv: string[] = process.argv.slice(2)): ReviewerConf
     }
   }
 
+  let includePatternsResetByFallback = false;
+
   if (customStackError) {
     // Falha na stack customizada ou stack desconhecida. Ativamos fallback automático.
     const originalStack = stackName;
@@ -643,6 +648,8 @@ export function loadConfig(argv: string[] = process.argv.slice(2)): ReviewerConf
     stackName = stackConfig.name;
     stackSource = detected ? 'detected' : 'fallback';
     customPromptContent = undefined; // descarta o prompt customizado com problema
+    includePatternsResetByFallback =
+      originalStack.trim().toLowerCase() === 'custom' && Boolean(includePatternsVal);
 
     console.warn('\x1b[33m%s\x1b[0m', `\n⚠️  [Cursor Reviewer] AVISO DE CONFIGURAÇÃO DE STACK/PROMPT:`);
     console.warn('\x1b[33m%s\x1b[0m', `   ${customStackError.message}`);
@@ -657,10 +664,8 @@ export function loadConfig(argv: string[] = process.argv.slice(2)): ReviewerConf
   }
 
   let includePatterns: string[];
-  const rawIncludePatterns = cli.includePatterns ?? process.env.CURSOR_REVIEWER_INCLUDE_PATTERNS?.trim() ?? '';
-  const includePatternsVal = rawIncludePatterns && !isUnexpandedPipelineMacro(rawIncludePatterns) ? rawIncludePatterns : '';
 
-  if (includePatternsVal) {
+  if (includePatternsVal && !includePatternsResetByFallback) {
     const parsed = parseCsvPatterns(includePatternsVal);
     if (parsed.length === 0) {
       console.warn('\x1b[33m%s\x1b[0m', `\n⚠️  [Cursor Reviewer] AVISO: --include-patterns parseou para lista vazia. Usando os padrões padrão da stack: "${stackConfig.name}".\n`);
@@ -760,6 +765,15 @@ Exemplo local com target customizado:
 `);
 }
 
+function assertPathInsideRepo(resolvedPath: string, repoRoot: string): void {
+  const rel = relative(resolve(repoRoot), resolve(resolvedPath));
+  if (rel.startsWith('..') || isAbsolute(rel)) {
+    throw new Error(
+      `Arquivo de prompt customizado deve estar dentro do repositório: "${resolvedPath}"`,
+    );
+  }
+}
+
 function resolveCustomPromptContent(customPromptVal: string, repoRoot: string): string {
   const trimmed = customPromptVal.trim();
   if (!trimmed) {
@@ -770,26 +784,27 @@ function resolveCustomPromptContent(customPromptVal: string, repoRoot: string): 
     return trimmed;
   }
 
-  const pathsToTry = [
-    resolve(trimmed),
-    resolve(repoRoot, trimmed),
-  ];
-
-  for (const p of pathsToTry) {
-    if (existsSync(p)) {
-      try {
-        return readFileSync(p, 'utf8');
-      } catch (err: any) {
-        throw new Error(`Erro ao ler o arquivo de prompt customizado em "${p}": ${err.message}`);
-      }
+  const p = resolve(repoRoot, trimmed);
+  if (existsSync(p)) {
+    assertPathInsideRepo(p, repoRoot);
+    try {
+      return readFileSync(p, 'utf8');
+    } catch (err: any) {
+      throw new Error(`Erro ao ler o arquivo de prompt customizado em "${p}": ${err.message}`);
     }
   }
 
   const looksLikeFilePath =
     trimmed.endsWith('.md') ||
     trimmed.endsWith('.txt') ||
-    trimmed.includes('/') ||
-    trimmed.includes('\\');
+    trimmed.startsWith('./') ||
+    trimmed.startsWith('.\\') ||
+    trimmed.startsWith('../') ||
+    trimmed.startsWith('..\\') ||
+    /^[A-Za-z]:\\/.test(trimmed) ||
+    /^[A-Za-z]:\//.test(trimmed) ||
+    trimmed.startsWith('/') ||
+    trimmed.startsWith('\\');
 
   if (looksLikeFilePath) {
     throw new Error(`Arquivo de prompt customizado não encontrado: "${trimmed}"`);
