@@ -34,7 +34,6 @@ Para detalhes arquiteturais e teóricos profundos, consulte a pasta [`docs/`](do
     *   **Azure DevOps:** Emite logging commands (`##vso[task.logissue]`) e anexa um resumo markdown rico na tela de build (`##vso[task.uploadsummary]`).
     *   **GitHub:** Anexa um resumo markdown completo da revisão diretamente na página do workflow via `GITHUB_STEP_SUMMARY`.
 *   **📦 Execução Remota via cURL:** Permite rodar o reviewer remotamente baixando apenas o script `run.sh` da branch `release`, dispensando o clone completo do repositório ou a presença de dependências de desenvolvimento.
-*   **🛠️ Instalador de Skills Interativo (`install-skills.sh`):** Menu interativo no terminal (hospedado no repositório centralizado [workflow-skills](https://github.com/jpolvora/workflow-skills)) para selecionar, instalar e atualizar as diretrizes agênticas (`skills`) do Cursor no repositório de destino local de maneira simples e segura.
 *   **🤖 Skills agênticas do runner (`.agents/skills/`):** Skills versionadas neste repositório para uso no Cursor/IDE ao desenvolver ou operar o `cursor-reviewer`:
     *   **`code-review-self`** — Executa o pipeline de review (duas fases, gate, rodadas) pelo próprio agente do IDE, sem `@cursor/sdk`; útil para dry-run local e validação do comportamento do runner.
     *   **`megabrain`** — Revisão com threads persistentes (`[Thread #1]`, `[Thread #2]`, …); em rodadas seguintes avalia se cada thread foi `RESOLVED` ou permanece `UNRESOLVED`.
@@ -189,61 +188,18 @@ A arquitetura é modular e extensível. Para adicionar suporte a uma nova stack 
 
 ---
 
-## 🛠️ Gerenciamento de Skills (`install-skills.sh`)
+### Skills locais do `cursor-reviewer`
 
-As diretrizes agênticas e comportamentais (skills) utilizadas pelo Cursor Reviewer foram migradas para o repositório dedicado [workflow-skills](https://github.com/jpolvora/workflow-skills). Para instalar ou atualizar essas diretrizes no seu repositório local de desenvolvimento onde você executa o Cursor Reviewer:
-
-1. Abra o terminal e navegue até a raiz do seu repositório local de destino.
-2. Execute o instalador diretamente via cURL:
-   ```bash
-   curl -fsSL https://raw.githubusercontent.com/jpolvora/workflow-skills/main/install-skills.sh | bash
-   ```
-3. O menu interativo no console será exibido:
-   ```text
-   ============================================================
-     Workflow Skills - Skill Installer
-   ============================================================
-   Source: /path/to/workflow-skills/.agents/skills
-   Target: /path/to/my-project/.agents/skills
-   ------------------------------------------------------------
-   Toggle selection by entering the number.
-   Enter 'a' to select/deselect all.
-   Enter 'y' or 'i' to install the selected skills.
-   Enter 'q' to quit.
-   ------------------------------------------------------------
-
-     [ ]  1) code-review
-     [ ]  2) fix-pr
-     [ ]  3) karpathy-guidelines
-     [ ]  4) plan-us
-     [ ]  5) us-delivery-workflow
-   ```
-   - Digite o número correspondente à skill e pressione **Enter** para alternar a seleção (`[ ]` vs `[x]`).
-   - Digite `a` para alternar a seleção de todas as skills.
-   - Confirme a instalação digitando `y` ou `i` e pressionando **Enter**.
-   - Para sair sem alterar nada, digite `q`.
-
-### 🔄 Atualização de Skills
-Se uma skill selecionada já existir no repositório de destino, o script detectará o conflito e solicitará confirmação antes de sobrescrever:
-```text
-Installing 'code-review'...
-  Warning: Destination directory '.agents/skills/code-review' already exists.
-  Overwrite? (y/n):
-```
-Desta forma, quando novas skills forem adicionadas ao `workflow-skills` ou as existentes forem atualizadas, você poderá sincronizar os repositórios locais executando o script novamente.
-
-> [!NOTE]
-> **Execução Descentralizada:** O script detecta automaticamente se está sendo executado fora do repositório original do `workflow-skills` (como na execução via cURL acima). Nesses casos, ele clona silenciosamente o repositório original do GitHub em um diretório temporário para obter as skills mais recentes e as instala ou atualiza localmente no seu projeto sem gerar colisões ou conflitos de caminhos.
-
-### Skills específicas do `cursor-reviewer`
-
-As skills em `.agents/skills/` deste repositório são **locais ao runner** (não instaladas via `workflow-skills`). Invocáveis no Cursor com `/code-review-self`, `/megabrain` ou `/solve-pr` quando anexadas à conversa:
+As skills em `.agents/skills/` deste repositório são locais ao runner. Invocáveis no Cursor com `/code-review-self`, `/megabrain` ou `/solve-pr` quando anexadas à conversa:
 
 | Skill | Quando usar |
 | :--- | :--- |
 | `code-review-self` | Revisar diff/PR localmente pelo agente do IDE, espelhando `src/index.ts` em modo somente-leitura |
 | `megabrain` | Revisão iterativa com threads numeradas; follow-up após commits de correção |
 | `solve-pr` | Implementar correções das threads abertas do bot e republicar na PR |
+
+> [!TIP]
+> Para obter mais informações sobre outras diretrizes e skills genéricas reutilizáveis (como `code-review` ou `fix-pr`), consulte o repositório centralizado [workflow-skills](https://github.com/jpolvora/workflow-skills).
 
 ---
 
@@ -293,6 +249,86 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           curl -fsSL https://raw.githubusercontent.com/jpolvora/cursor-reviewer/main/run.sh | bash -s -- --gh --pr-id ${{ github.event.pull_request.number }}
+```
+
+---
+
+## 📦 Execução Remota via cURL (`run.sh`)
+
+O script `run.sh` permite executar o **Cursor Reviewer** em qualquer repositório sem a necessidade de clonar o projeto do runner manualmente ou instalar dependências de desenvolvimento locais de forma permanente. 
+
+O script realiza as seguintes etapas de forma silenciosa:
+1. Clona a branch `release` (contendo exclusivamente os artefatos compilados em JS do runner) em um diretório temporário local (`.tmp-cursor-reviewer`).
+2. Instala apenas as dependências de produção necessárias de runtime (`npm ci --omit=dev`).
+3. Executa o agente direcionando o escopo de análise para a pasta atual e repassa todos os argumentos CLI.
+4. Remove o diretório temporário automaticamente ao concluir ou interromper o processo.
+
+### 🚀 Estrutura de Execução Básica
+
+Você pode invocar o runner passando opções CLI usando o operador `--` após a chamada do bash:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jpolvora/cursor-reviewer/main/run.sh | bash -s -- [OPÇÕES]
+```
+
+> [!IMPORTANT]
+> A variável de ambiente `CURSOR_API_KEY` deve estar exposta no terminal de execução para que o agente consiga autenticar no Cursor SDK.
+
+### 📋 Principais Opções de Linha de Comando (Forwarded Arguments)
+
+Todos os argumentos passados após `--` são repassados ao indexador do Cursor Reviewer. A lista completa de opções suportadas inclui:
+
+| Parâmetro | Descrição |
+| :--- | :--- |
+| `--dry-run` | Executa o review simulado sem publicar threads ou comentários na PR (útil para testes locais). |
+| `--verbose` | Exibe logs detalhados de depuração sobre o diff git, tokens e carregamento de regras. |
+| `--gh` / `--ado` | Força a plataforma de destino como **GitHub** ou **Azure DevOps**, respectivamente (autodetectado em ambientes CI). |
+| `--pr-id <ID>` | ID da Pull Request a ser revisada (obrigatório para publicação de threads). |
+| `--stack <nome>` | Define a stack tecnológica para focar a revisão com prompts especializados. Opções: `typescript`, `nextjs/react`, `php/laravel`, `abp/angular` ou `custom`. |
+| `--custom-prompt <caminho>` | String de prompt ou caminho para arquivo markdown (obrigatório se `--stack custom` for selecionado). |
+| `--target-branch <branch>` | Branch de comparação para gerar o diff (Padrão: `refs/heads/master`). |
+| `--include-patterns <csv>` | Lista de padrões glob de inclusão de arquivos separados por vírgula (ex: `**/*.ts,**/*.cs`). |
+| `--include-uncommitted` | Inclui arquivos modificados não commitados na análise (staged/unstaged). |
+| `--bot-tag <tag>` | Tag identificadora de comentários feita pelo bot (Padrão: `[Cursor Reviewer]`). |
+| `--model <id>` | ID do modelo LLM do Cursor a utilizar (Padrão: `composer-2.5`). |
+
+---
+
+### 💡 Exemplos de Uso
+
+#### 1. Simulação Local (Dry-Run) com Stack TypeScript
+Analisa o diff local contra a branch `master` usando boas práticas de TypeScript sem publicar nada:
+```bash
+export CURSOR_API_KEY="sua_chave_aqui"
+curl -fsSL https://raw.githubusercontent.com/jpolvora/cursor-reviewer/main/run.sh | bash -s -- --dry-run --stack typescript
+```
+
+#### 2. Executando Localmente com Comparação a Branch `develop` e Inclusão de Uncommitted Changes
+```bash
+export CURSOR_API_KEY="sua_chave_aqui"
+curl -fsSL https://raw.githubusercontent.com/jpolvora/cursor-reviewer/main/run.sh | bash -s -- --dry-run --target-branch refs/heads/develop --include-uncommitted
+```
+
+#### 3. Integração Manual no GitHub Actions (Exemplo de Workflow)
+Para executar remotamente na pipeline do GitHub Actions enviando os dados da PR:
+```yaml
+- name: Run Reviewer Agent
+  env:
+    CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  run: |
+    curl -fsSL https://raw.githubusercontent.com/jpolvora/cursor-reviewer/main/run.sh | bash -s -- --gh --pr-id ${{ github.event.pull_request.number }}
+```
+
+#### 4. Integração no Azure Pipelines (Azure DevOps)
+Executa remotamente especificando a organização e projeto:
+```yaml
+- script: |
+    curl -fsSL https://raw.githubusercontent.com/jpolvora/cursor-reviewer/main/run.sh | bash -s -- --ado --org "MinhaOrg" --project "MeuProjeto" --repo "MeuRepo" --pr-id $(System.PullRequest.PullRequestId)
+  env:
+    CURSOR_API_KEY: $(CURSOR_API_KEY)
+    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+  displayName: 'Executar Cursor Reviewer via cURL'
 ```
 
 ---
