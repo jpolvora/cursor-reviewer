@@ -4,6 +4,7 @@ import {
   assertSupportedCursorReviewerModelId,
   DEFAULT_CURSOR_REVIEWER_MODEL,
 } from './engine/cursor-sdk/model.js';
+import { assertOpencodeModel, DEFAULT_OPENCODE_MODEL } from './engine/opencode/model.js';
 import type { ReviewerEngineName } from './engine/types.js';
 import { detectSourceBranchRef } from './git/diff.js';
 import { ProjectValidationError, resolveProject } from './project.js';
@@ -238,6 +239,14 @@ function parseEngine(value: string | undefined): ReviewerEngineName {
     return 'opencode';
   }
   throw new Error(`Engine inválido: "${value}". Valores aceitos: cursor-sdk, opencode`);
+}
+
+function resolveReviewerModel(engine: ReviewerEngineName, cliModel?: string): string {
+  const raw = resolveOptionalEnv(
+    cliModel ?? process.env.CURSOR_REVIEWER_MODEL,
+    engine === 'opencode' ? DEFAULT_OPENCODE_MODEL : DEFAULT_MODEL,
+  );
+  return engine === 'opencode' ? assertOpencodeModel(raw) : assertSupportedCursorReviewerModelId(raw);
 }
 
 /** Lê um inteiro >= 0 de env; usa fallback se ausente, inválido ou macro ADO. */
@@ -700,13 +709,13 @@ export function loadConfig(argv: string[] = process.argv.slice(2)): ReviewerConf
       )
     : null;
 
+  const engine = parseEngine(process.env.CURSOR_REVIEWER_ENGINE);
+
   return {
     repoRoot,
     cursorApiKey,
-    engine: parseEngine(process.env.CURSOR_REVIEWER_ENGINE),
-    model: assertSupportedCursorReviewerModelId(
-      resolveOptionalEnv(cli.model ?? process.env.CURSOR_REVIEWER_MODEL, DEFAULT_MODEL),
-    ),
+    engine,
+    model: resolveReviewerModel(engine, cli.model),
     botTag: cli.botTag ?? process.env.CURSOR_REVIEWER_BOT_TAG ?? '[Cursor Reviewer]',
     verbose: cli.verbose ?? parseBool(process.env.CURSOR_REVIEWER_VERBOSE, true),
     dryRun,

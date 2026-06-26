@@ -96,7 +96,7 @@ O runner se autoexclui do diff por padrão (evita loops). Defina `CURSOR_REVIEWE
 |---|---|
 | `src/index.ts` | Ponto de entrada: prepara workspace, coleta contexto de PR, dispara agente, posta comentários. |
 | `src/config.ts` | Argumentos CLI e variáveis de ambiente. |
-| `src/engine/` | Interface `ExecutionEngine` + factory `getEngine()`. Engines: `cursor-sdk` (default), `opencode` (stub). |
+| `src/engine/` | Interface `ExecutionEngine` + factory `getEngine()`. Engines: `cursor-sdk` (default), `opencode` (`@opencode-ai/sdk`). |
 | `src/engine/cursor-sdk/stream.ts` | **Acoplamento ao `@cursor/sdk`.** Streaming, timeout, sandbox, token usage. |
 | `src/agent/runner.ts` | Constrói o prompt e delega ao `ExecutionEngine` injetado. |
 | `src/provider/` | Interface `PlatformProvider` + implementações `AdoProvider` e `GithubProvider`. |

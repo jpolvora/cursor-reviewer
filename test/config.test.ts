@@ -125,6 +125,21 @@ describe('loadConfig', () => {
       () => {
         const config = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature']);
         assert.equal(config.engine, 'opencode');
+        assert.equal(config.model, 'anthropic/claude-sonnet-4-6');
+      },
+    );
+  });
+
+  it('aceita modelo provider/model com engine opencode', () => {
+    withEnv(
+      {
+        CURSOR_API_KEY: 'cursor_test',
+        CURSOR_REVIEWER_ENGINE: 'opencode',
+        CURSOR_REVIEWER_MODEL: 'openai/gpt-4.1',
+      },
+      () => {
+        const config = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature']);
+        assert.equal(config.model, 'openai/gpt-4.1');
       },
     );
   });
