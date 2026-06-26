@@ -11,17 +11,6 @@ export function countSeverities(reviews: CodeReviewItem[]): Record<ReviewSeverit
   return counts;
 }
 
-export function filterNewReviews(
-  reviews: CodeReviewItem[],
-  existingKeys: Map<string, boolean>,
-  normalizePath: (path: string) => string,
-): CodeReviewItem[] {
-  return reviews.filter((review) => {
-    const normalizedPath = normalizePath(review.fileName);
-    return !existingKeys.has(`${normalizedPath}|line:${review.lineNumber}`);
-  });
-}
-
 /** pendingThreads: apenas threads bot [Cursor Reviewer] active/pending (filtradas upstream). */
 export function evaluateGate(params: {
   newReviews: CodeReviewItem[];

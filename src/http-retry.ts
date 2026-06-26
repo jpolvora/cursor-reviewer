@@ -1,4 +1,4 @@
-/** Utilitários de retry/backoff compartilhados entre clientes HTTP de providers. */
+/** Utilitários de retry/backoff compartilhados entre clientes HTTP (ADO, GitHub). */
 
 export const DEFAULT_HTTP_MAX_RETRIES = 3;
 
@@ -38,6 +38,14 @@ export function backoffDelayMs(attempt: number, retryAfterSeconds?: number): num
 
 export async function sleepBackoff(attempt: number, retryAfterSeconds?: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, backoffDelayMs(attempt, retryAfterSeconds)));
+}
+
+/**
+ * Heurística conservadora: JWT/OAuth começa com `eyJ` (header base64).
+ * PATs ADO/GitHub não usam esse prefixo — evita falso positivo com `.` no token.
+ */
+export function isJwtAccessToken(token: string): boolean {
+  return token.trim().startsWith('eyJ');
 }
 
 export interface GraphqlPageInfo {

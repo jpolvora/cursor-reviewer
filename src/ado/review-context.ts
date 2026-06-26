@@ -5,8 +5,8 @@ import {
   stripHtml,
 } from './utils.js';
 import {
-  RESOLUTION_MARKER,
   REVIEW_SUMMARY_MARKER,
+  commentBodyHasResolutionReply,
 } from '../git/markers.js';
 import type {
   ActiveThreadInfo,
@@ -33,7 +33,7 @@ function threadHasResolutionReply(thread: { comments: Array<{ content: string; i
     (comment) =>
       !comment.isDeleted &&
       commentHasBotTag(comment.content, botTag, 'contains') &&
-      comment.content.includes(RESOLUTION_MARKER),
+      commentBodyHasResolutionReply(comment.content, botTag),
   );
 }
 

@@ -6,7 +6,7 @@ import {
   sleepBackoff,
   truncateResponseText,
   type GraphqlPageInfo,
-} from './http-retry.js';
+} from '../http-retry.js';
 import {
   GITHUB_PR_COMMENTS_PAGE_SIZE,
   GITHUB_REVIEW_THREADS_PAGE_SIZE,

@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   backoffDelayMs,
+  isJwtAccessToken,
   isRetryableHttpStatus,
   paginateGraphqlConnection,
   parseRetryAfterSeconds,
-} from '../src/provider/http-retry.js';
+} from '../src/http-retry.js';
 
 describe('http-retry helpers', () => {
   it('isRetryableHttpStatus aceita 429 e 5xx', () => {
@@ -28,6 +29,12 @@ describe('http-retry helpers', () => {
     assert.equal(backoffDelayMs(1), 1000);
     assert.equal(backoffDelayMs(2), 2000);
     assert.equal(backoffDelayMs(1, 120), 30_000);
+  });
+
+  it('isJwtAccessToken detecta JWT pelo prefixo eyJ', () => {
+    assert.equal(isJwtAccessToken('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.payload.sig'), true);
+    assert.equal(isJwtAccessToken('4xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'), false);
+    assert.equal(isJwtAccessToken('pat.with.dots.but.not.jwt'), false);
   });
 
   it('paginateGraphqlConnection percorre todas as páginas', async () => {

@@ -1,3 +1,12 @@
+import {
+  DEFAULT_HTTP_MAX_RETRIES,
+  isJwtAccessToken,
+  isRetryableHttpStatus,
+  parseRetryAfterSeconds,
+  sleepBackoff,
+  truncateResponseText,
+} from '../http-retry.js';
+
 export class AdoClient {
   constructor(
     readonly organization: string,
@@ -38,8 +47,7 @@ export class AdoClient {
   }
 
   private headers(): Record<string, string> {
-    const isJwt = this.accessToken.includes('.') || this.accessToken.startsWith('eyJ');
-    const authHeader = isJwt
+    const authHeader = isJwtAccessToken(this.accessToken)
       ? `Bearer ${this.accessToken}`
       : `Basic ${Buffer.from(`:${this.accessToken}`).toString('base64')}`;
     return {
@@ -50,8 +58,7 @@ export class AdoClient {
 
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const url = path.startsWith('http') ? path : `${this.baseUrl}${path}`;
-
-    const maxRetries = 3;
+    const maxRetries = DEFAULT_HTTP_MAX_RETRIES;
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -67,7 +74,7 @@ export class AdoClient {
         if (attempt === maxRetries) {
           throw lastError;
         }
-        await this.backoff(attempt);
+        await sleepBackoff(attempt);
         continue;
       }
 
@@ -81,47 +88,14 @@ export class AdoClient {
       const text = truncateResponseText(await response.text());
       lastError = new Error(`ADO ${method} ${url} failed: ${response.status} ${text}`);
 
-      const isRetryable = response.status === 429 || (response.status >= 500 && response.status < 600);
-      if (!isRetryable || attempt === maxRetries) {
+      if (!isRetryableHttpStatus(response.status) || attempt === maxRetries) {
         throw lastError;
       }
 
       const retryAfterSeconds = parseRetryAfterSeconds(response.headers.get('Retry-After'));
-      await this.backoff(attempt, retryAfterSeconds);
+      await sleepBackoff(attempt, retryAfterSeconds);
     }
 
     throw lastError ?? new Error(`ADO ${method} ${url} failed after ${maxRetries} retries`);
   }
-
-  /** Backoff exponencial com teto de 8s; respeita Retry-After em 429 quando presente. */
-  private async backoff(attempt: number, retryAfterSeconds?: number): Promise<void> {
-    const backoffMs =
-      retryAfterSeconds != null && retryAfterSeconds > 0
-        ? Math.min(retryAfterSeconds * 1000, 30_000)
-        : Math.min(1000 * 2 ** (attempt - 1), 8000);
-    await new Promise((resolve) => setTimeout(resolve, backoffMs));
-  }
-}
-
-function truncateResponseText(text: string, max = 2000): string {
-  if (text.length <= max) {
-    return text;
-  }
-  return `${text.slice(0, max - 3)}...`;
-}
-
-function parseRetryAfterSeconds(header: string | null): number | undefined {
-  if (!header?.trim()) {
-    return undefined;
-  }
-  const seconds = Number(header.trim());
-  if (Number.isFinite(seconds) && seconds > 0) {
-    return seconds;
-  }
-  const retryDate = Date.parse(header);
-  if (!Number.isNaN(retryDate)) {
-    const deltaSeconds = Math.ceil((retryDate - Date.now()) / 1000);
-    return deltaSeconds > 0 ? deltaSeconds : undefined;
-  }
-  return undefined;
 }
