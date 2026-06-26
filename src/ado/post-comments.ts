@@ -31,6 +31,11 @@ export function parseCodeReviewResponse(raw: CodeReviewResponse): ParsedCodeRevi
     if (!seenKeys.has(parentKey)) {
       seenKeys.add(parentKey);
       flattenedIncoming.push(review);
+    } else if (isPublishableReview(review)) {
+      const idx = flattenedIncoming.findIndex((r) => reviewDedupKey(r) === parentKey);
+      if (idx >= 0 && !isPublishableReview(flattenedIncoming[idx]!)) {
+        flattenedIncoming[idx] = review;
+      }
     }
 
     if (review.relatedOccurrences && review.relatedOccurrences.length > 0) {
