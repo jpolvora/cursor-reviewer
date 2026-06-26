@@ -22,6 +22,7 @@ import {
   RESOLUTION_MARKER,
   REVIEW_SUMMARY_MARKER,
 } from '../git/markers.js';
+import { GithubClient } from './github-client.js';
 import type { PlatformProvider } from './types.js';
 import type {
   ActiveThreadInfo,
@@ -33,119 +34,6 @@ import type {
   ReviewContextResult,
 } from '../ado/types.js';
 import type { TokenUsageTotals } from '../agent/token-usage.js';
-
-interface GraphqlPrResponse {
-  repository: {
-    pullRequest: {
-      headRefOid: string;
-      reviewThreads: {
-        nodes: Array<{
-          id: string;
-          isResolved: boolean;
-          path: string;
-          line: number | null;
-          comments: {
-            nodes: Array<{
-              id: string;
-              databaseId: number;
-              body: string;
-              author: {
-                login: string;
-              } | null;
-              createdAt: string;
-            }>;
-          };
-        }>;
-      };
-      comments: {
-        nodes: Array<{
-          id: string;
-          databaseId: number;
-          body: string;
-          author: {
-            login: string;
-          } | null;
-          createdAt: string;
-        }>;
-      };
-    };
-  };
-}
-
-class GithubClient {
-  constructor(
-    readonly owner: string,
-    readonly repository: string,
-    readonly token: string,
-  ) {}
-
-  get baseUrl(): string {
-    return 'https://api.github.com';
-  }
-
-  private headers(apiType: 'rest' | 'graphql'): Record<string, string> {
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${this.token}`,
-      'User-Agent': 'cursor-reviewer-bot',
-    };
-    if (apiType === 'rest') {
-      headers['Accept'] = 'application/vnd.github.v3+json';
-      headers['Content-Type'] = 'application/json';
-    } else {
-      headers['Content-Type'] = 'application/json';
-    }
-    return headers;
-  }
-
-  async restGet<T>(path: string): Promise<T> {
-    return this.request<T>('GET', path);
-  }
-
-  async restPost<T>(path: string, body: unknown): Promise<T> {
-    return this.request<T>('POST', path, body);
-  }
-
-  async restPatch<T>(path: string, body: unknown): Promise<T> {
-    return this.request<T>('PATCH', path, body);
-  }
-
-  async graphql<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
-    const url = `${this.baseUrl}/graphql`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: this.headers('graphql'),
-      body: JSON.stringify({ query, variables }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`GitHub GraphQL failed: ${response.status} ${await response.text()}`);
-    }
-
-    const json = (await response.json()) as { data?: T; errors?: Array<{ message: string }> };
-    if (json.errors && json.errors.length > 0) {
-      throw new Error(`GitHub GraphQL errors:\n${json.errors.map((e) => e.message).join('\n')}`);
-    }
-    return json.data as T;
-  }
-
-  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const url = path.startsWith('http') ? path : `${this.baseUrl}${path}`;
-    const response = await fetch(url, {
-      method,
-      headers: this.headers('rest'),
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-
-    if (response.ok) {
-      if (response.status === 204) {
-        return undefined as T;
-      }
-      return response.json() as Promise<T>;
-    }
-
-    throw new Error(`GitHub REST ${method} ${url} failed: ${response.status} ${await response.text()}`);
-  }
-}
 
 export class GithubProvider implements PlatformProvider {
   readonly name = 'github';
@@ -195,54 +83,8 @@ export class GithubProvider implements PlatformProvider {
   }
 
   async getPullRequestReviewContext(botTag: string, log: (msg: string) => void): Promise<ReviewContextResult> {
-    const query = `
-      query GetPrThreadsAndComments($owner: String!, $name: String!, $number: Int!) {
-        repository(owner: $owner, name: $name) {
-          pullRequest(number: $number) {
-            headRefOid
-            reviewThreads(first: 100) {
-              nodes {
-                id
-                isResolved
-                path
-                line
-                comments(first: 50) {
-                  nodes {
-                    id
-                    databaseId
-                    body
-                    author {
-                      login
-                    }
-                    createdAt
-                  }
-                }
-              }
-            }
-            comments(first: 100) {
-              nodes {
-                id
-                databaseId
-                body
-                author {
-                  login
-                }
-                createdAt
-              }
-            }
-          }
-        }
-      }
-    `;
-
     try {
-      const data = await this.client.graphql<GraphqlPrResponse>(query, {
-        owner: this.config.organization,
-        name: this.config.repositoryName,
-        number: this.config.pullRequestId,
-      });
-
-      const pr = data.repository.pullRequest;
+      const pr = await this.client.fetchPullRequestContextData(this.config.pullRequestId, log);
       this.headRefOid = pr.headRefOid;
 
       const existingKeys = new Map<string, boolean>();
@@ -251,8 +93,8 @@ export class GithubProvider implements PlatformProvider {
       const activeThreads: ActiveThreadInfo[] = [];
       const pendingThreads: PendingPrThread[] = [];
 
-      for (const thread of pr.reviewThreads.nodes) {
-        const comments = (thread.comments?.nodes ?? []).filter(c => c && c.body);
+      for (const thread of pr.reviewThreads) {
+        const comments = thread.comments.filter((c) => c && c.body);
         if (comments.length === 0) continue;
 
         const firstComment = comments[0];
@@ -316,7 +158,7 @@ export class GithubProvider implements PlatformProvider {
       }
 
       const allThreadsMock = {
-        value: (pr.comments?.nodes ?? []).map(c => ({
+        value: pr.prComments.map((c) => ({
           id: c.databaseId,
           status: 'closed',
           comments: [{
@@ -324,9 +166,9 @@ export class GithubProvider implements PlatformProvider {
             parentCommentId: 0,
             content: c.body,
             commentType: 1,
-            author: { displayName: c.author?.login }
-          }]
-        }))
+            author: { displayName: c.author?.login },
+          }],
+        })),
       };
 
       log(`Found ${pendingThreads.length} pending thread(s) on PR (all authors).`);
