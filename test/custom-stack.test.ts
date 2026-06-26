@@ -364,7 +364,7 @@ describe('Custom Stack and Prompts', () => {
     );
   });
 
-  it('bloqueia leitura de prompt customizado via symlink apontando para arquivo fora do repositório', () => {
+  it('bloqueia leitura de prompt customizado via symlink apontando para arquivo fora do repositório', (t) => {
     const outsideDir = mkdtempSync(join(tmpdir(), 'cursor-reviewer-symlink-test-'));
     const secretFile = join(outsideDir, 'secret.env');
     writeFileSync(secretFile, 'CURSOR_API_KEY=leaked-secret-via-symlink', 'utf8');
@@ -372,8 +372,9 @@ describe('Custom Stack and Prompts', () => {
 
     try {
       symlinkSync(secretFile, symlinkPath);
-    } catch (err: any) {
+    } catch {
       rmSync(outsideDir, { recursive: true, force: true });
+      t.skip('symlinks não suportados neste ambiente');
       return;
     }
 
@@ -402,7 +403,7 @@ describe('Custom Stack and Prompts', () => {
     }
   });
 
-  it('aceita prompt customizado legítimo quando --repo-root aponta para um caminho com symlink (sem falso-positivo de escape)', () => {
+  it('aceita prompt customizado legítimo quando --repo-root aponta para um caminho com symlink (sem falso-positivo de escape)', (t) => {
     const realRepoRoot = resolve(process.cwd());
     const symlinkedRepoRoot = join(tmpdir(), `cursor-reviewer-repo-symlink-${Date.now()}`);
     const promptFileName = 'temp-in-repo-prompt-test.md';
@@ -411,8 +412,9 @@ describe('Custom Stack and Prompts', () => {
 
     try {
       symlinkSync(realRepoRoot, symlinkedRepoRoot);
-    } catch (err: any) {
+    } catch {
       rmSync(promptPath, { force: true });
+      t.skip('symlinks não suportados neste ambiente');
       return;
     }
 
