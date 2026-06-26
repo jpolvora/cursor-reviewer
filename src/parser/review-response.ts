@@ -267,5 +267,19 @@ function normalizeReviewItem(item: unknown) {
       ? record.impactPaths.map(String).map((path) => path.trim()).filter((path) => path.length > 0)
       : undefined,
     suggestedFix: record.suggestedFix ? String(record.suggestedFix).trim() : undefined,
+    relatedOccurrences: Array.isArray(record.relatedOccurrences)
+      ? record.relatedOccurrences
+          .map((occ): { fileName: string; lineNumber: number } | null => {
+            if (!occ || typeof occ !== 'object') return null;
+            const r = occ as Record<string, unknown>;
+            const fn = String(r.fileName ?? '').trim();
+            const ln = Number(r.lineNumber ?? 0);
+            if (fn && Number.isFinite(ln) && ln > 0) {
+              return { fileName: fn, lineNumber: Math.trunc(ln) };
+            }
+            return null;
+          })
+          .filter((occ): occ is { fileName: string; lineNumber: number } => occ !== null)
+      : undefined,
   };
 }

@@ -15,6 +15,8 @@ export interface CodeReviewItem {
   impactPaths?: string[];
   /** Estratégia de correção sugerida para o desenvolvedor */
   suggestedFix?: string;
+  /** Agrupamento de ocorrências irmãs do mesmo defeito em outros arquivos */
+  relatedOccurrences?: { fileName: string; lineNumber: number }[];
 }
 
 export interface ResolvedThreadItem {
