@@ -316,7 +316,28 @@ export class GithubProvider implements PlatformProvider {
 - You MAY return new reviews for lines that changed materially or were not reviewed before.
 - If the current diff already addresses an **active** issue, add that thread to \`resolvedThreads\` with \`threadId\` or \`fileName\`+\`lineNumber\` and a note explaining what was fixed.
 - Do NOT auto-resolve a thread just because the line disappeared from the diff — only resolve when you verified the underlying issue no longer exists.
+`;
 
+        contextForLlm += `
+### Padrões de Risco Detectados Nesta PR (Memória Intra-PR)
+
+Nas rodadas anteriores, foram identificados os seguintes problemas na base de código:
+`;
+        const allSummaries = new Set<string>();
+        for (const row of [...activeContextRows, ...resolvedContextRows]) {
+          const shortSummary = row.summary.trim();
+          if (shortSummary) {
+            allSummaries.add(`- ${shortSummary}`);
+          }
+        }
+        for (const summary of allSummaries) {
+          contextForLlm += `${summary}\n`;
+        }
+        contextForLlm += `
+**Ação Obrigatória (Fase 1 e 2):** Ao analisar o diff atual, priorize a busca por variações destes mesmos erros. O desenvolvedor pode ter corrigido a linha exata apontada anteriormente, mas cometido o mesmo erro nos novos arquivos/linhas deste commit. Use tools para caçar ativamente as mesmas vulnerabilidades e agrupe-as via \`relatedOccurrences\`.
+`;
+
+        contextForLlm += `
 ### Active threads (open)
 
 `;

@@ -16,14 +16,28 @@ import type {
   ResolvedThreadItem,
 } from './types.js';
 
+function reviewDedupKey(review: Pick<CodeReviewItem, 'fileName' | 'lineNumber'>): string {
+  return `${normalizeFilePath(review.fileName)}|line:${review.lineNumber}`;
+}
+
 export function parseCodeReviewResponse(raw: CodeReviewResponse): ParsedCodeReviewResponse {
   const incoming = raw.reviews ?? [];
   
   const flattenedIncoming: CodeReviewItem[] = [];
+  const seenKeys = new Set<string>();
+
   for (const review of incoming) {
-    flattenedIncoming.push(review);
+    const parentKey = reviewDedupKey(review);
+    if (!seenKeys.has(parentKey)) {
+      seenKeys.add(parentKey);
+      flattenedIncoming.push(review);
+    }
+
     if (review.relatedOccurrences && review.relatedOccurrences.length > 0) {
       for (const occ of review.relatedOccurrences) {
+        const occKey = reviewDedupKey(occ);
+        if (seenKeys.has(occKey)) continue;
+        seenKeys.add(occKey);
         flattenedIncoming.push({
           ...review,
           fileName: occ.fileName,

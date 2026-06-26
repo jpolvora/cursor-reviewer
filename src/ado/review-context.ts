@@ -194,9 +194,10 @@ Nas rodadas anteriores, foram identificados os seguintes problemas na base de c�
 `;
       const allSummaries = new Set<string>();
       for (const row of [...activeContextRows, ...resolvedContextRows]) {
-        // Limita o sumário a uma frase para não poluir
-        const shortSummary = row.summary.split('.')[0] + '.';
-        allSummaries.add(`- ${shortSummary}`);
+        const shortSummary = row.summary.trim();
+        if (shortSummary) {
+          allSummaries.add(`- ${shortSummary}`);
+        }
       }
       for (const summary of allSummaries) {
         contextForLlm += `${summary}\n`;
