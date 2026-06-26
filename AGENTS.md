@@ -125,14 +125,15 @@ Antes de submeter alterações ou finalizar tarefas de desenvolvimento, você **
 *   **Compatibilidade de Stacks:** Ao adicionar ou modificar stacks, certifique-se de manter compatibilidade com o comportamento de fallback padrão (`ABP/Angular`) e valide que a estratégia de autodetecção funciona e é coberta por testes no `test/config.test.ts`.
 *   **Sincronização de Docs:** Ao alterar o validador de gate (`review-validation.ts`), o controle de rodadas (`round-state.ts`), a lógica de diff, as stacks suportadas ou prompts do sistema, lembre-se de atualizar em conjunto este arquivo `AGENTS.md`, o `README.md` e as referências em `docs/`.
 
-### 3.4 Gerenciamento e Atualização de Skills
-*   **Repositório Dedicado:** A coleção de skills genéricas e o instalador interativo (`install-skills.sh`) foram movidos para o repositório dedicado [workflow-skills](https://github.com/jpolvora/workflow-skills).
-*   **Novas Skills e Correções (genéricas):** Skills reutilizáveis entre projetos (ex.: `code-review`, `fix-pr`) devem ser efetuadas e versionadas no repositório `workflow-skills`. Desenvolvedores devem sincronizar suas alterações lá e rodar o cURL do instalador para atualizar os repositórios locais de destino.
-*   **Skills locais deste repositório (`.agents/skills/`):** Skills específicas do ecossistema `cursor-reviewer` vivem neste repo e **não** passam pelo instalador `workflow-skills`:
-    *   `code-review-self` — Revisão agêntica somente-leitura pelo harness/IDE, espelhando o pipeline de `src/index.ts` sem acionar o `@cursor/sdk`. Use para revisar PR localmente ou em dry-run pelo agente.
-    *   `megabrain` — Revisão iterativa com threads numeradas (`[Thread #N]`); avalia correções em rodadas subsequentes sem reabrir feedback já resolvido.
-    *   `solve-pr` — Busca threads ativas no GitHub, implementa correções sugeridas, faz commit/push e aguarda a próxima rodada do runner.
-    Ao adicionar ou alterar qualquer uma destas skills, atualize em conjunto este `AGENTS.md` e o `README.md`.
+### 3.4 Skills locais do repositório (`.agents/skills/`)
+As skills específicas do ecossistema `cursor-reviewer` vivem neste repo e não são compartilhadas externamente:
+*   `code-review-self` — Revisão agêntica somente-leitura pelo harness/IDE, espelhando o pipeline de `src/index.ts` sem acionar o `@cursor/sdk`. Use para revisar PR localmente ou em dry-run pelo agente.
+*   `megabrain` — Revisão iterativa com threads numeradas (`[Thread #N]`); avalia correções em rodadas subsequentes sem reabrir feedback já resolvido.
+*   `solve-pr` — Busca threads ativas no GitHub, implementa correções sugeridas, faz commit/push e aguarda a próxima rodada do runner.
+Ao adicionar ou alterar qualquer uma destas skills, atualize em conjunto este `AGENTS.md` e o `README.md`.
+
+*Para mais informações sobre outras diretrizes e skills genéricas e reutilizáveis entre projetos, consulte o repositório [workflow-skills](https://github.com/jpolvora/workflow-skills).*
+
 
 ### 3.5 Diretriz Crítica de Comportamento (Para Agentes)
 *   **Postura Analítica e Crítica:** Ao responder ao usuário e elaborar sugestões arquiteturais ou de código, **não concorde passivamente** ou tente apenas "agradar" o usuário. Seja profundamente crítico, questione premissas e avalie com rigor técnico as propostas enviadas. 
