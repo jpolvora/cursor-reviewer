@@ -42,8 +42,15 @@ Execute a suíte de testes locais para certificar-se de que todo o código compi
 npm test
 ```
 
-### Passo 6: Commit, Push e Disparo de Nova Rodada
-Uma vez que os testes passaram com sucesso:
+### Passo 6: Responder e Resolver as Threads no GitHub
+Após comprovar que a solução funciona e os testes passam, responda com uma nota explicativa da correção e marque as threads afetadas como resolvidas (fechadas) no GitHub. Use o script utilitário `resolve_thread.js`:
+```bash
+node .agents/skills/solve-pr/scripts/resolve_thread.js <THREAD_ID> "Nota explicando como a issue foi resolvida"
+```
+Isso evita que o revisor analise novamente e alerte sobre um problema que já foi corrigido.
+
+### Passo 7: Commit, Push e Disparo de Nova Rodada
+Com as threads resolvidas e o código validado:
 1. Adicione os arquivos modificados ao stage do Git:
    ```bash
    git add <arquivos-modificados>
@@ -57,5 +64,5 @@ Uma vez que os testes passaram com sucesso:
    git push origin <sua-branch>
    ```
 
-### Passo 7: Aguardar a Próxima Rodada
-Acompanhe os logs da execução e aguarde até que o bot de code review publique os resultados da nova rodada. Se novos problemas forem levantados ou persistirentes, reinicie o ciclo a partir do **Passo 1**.
+### Passo 8: Aguardar a Próxima Rodada
+Acompanhe os logs da execução e aguarde até que o bot de code review publique os resultados da nova rodada. Se novos problemas forem levantados ou persistirem, reinicie o ciclo a partir do **Passo 1**.
