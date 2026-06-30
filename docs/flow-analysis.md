@@ -18,7 +18,7 @@ flowchart TD
     C -->|Sim| F[Coleta ADO: work items + threads]
     F --> G[Agente SDK: Fases 1–2]
     G --> H[Parser JSON]
-    H --> I[Filtro score ≤ 5 + política summary]
+    H --> I[Filtro score < SCORE_MIN (default 6) + política summary]
     I --> J[Dedup arquivo+linha]
     J --> K[Publica / resolve threads]
     K --> L[evaluateGate — resumo]
@@ -217,16 +217,16 @@ Incluir em `reviews` só se **todas** forem verdadeiras:
 |-------|-------------------|-----------|
 | 0–2 | `resolve-comment` | **Não** — nit/estilo |
 | 3–5 | `resolve-comment` | **Não** |
-| 6–8 | `fix-code` | **Sim** |
+| 6–8 | `fix-code` | **Sim** (se score ≥ `SCORE_MIN`; default 6) |
 | 9–10 | `fix-code` | **Sim** — crítico |
 
-> **`resolve-comment`**: classificação de “fechar thread com justificativa, **sem mudar código**”. No reviewer, score ≤ 5 significa **não criar thread**. Se uma thread **for** publicada com `fix-code`, o dev ainda pode tratá-la como falso positivo ao revisar a PR.
+> **`resolve-comment`**: classificação de “fechar thread com justificativa, **sem mudar código**”. No reviewer, score abaixo de `SCORE_MIN` (default: &lt; 6) significa **não criar thread**. Se uma thread **for** publicada com `fix-code`, o dev ainda pode tratá-la como falso positivo ao revisar a PR.
 
 ### Gate programático (TypeScript)
 
-Em `ado/review-validation.ts` + `ado/post-comments.ts`, `isPublishableReview` exige **todos** os critérios:
+Em `ado/review-validation.ts` + `post-comments.ts`, `isPublishableReview(review, scoreMin)` exige **todos** os critérios:
 
-Exige **todos**: `score` finito 6–10; `fileName` não vazio; `lineNumber` inteiro > 0; `severity` válida (`critical`/`warning`/`suggestion`); `comment` e `analysis` não vazios; `impactPaths` array não vazio com paths não vazios; `developerAction` ∈ {`fix-code`, `escalate`} (nunca `resolve-comment`). `suggestedFix` é **opcional**.
+Exige **todos**: `score` finito **SCORE_MIN–10** (default 6–10; configurável via env `SCORE_MIN` ou `--score-min`); `fileName` não vazio; `lineNumber` inteiro > 0; `severity` válida (`critical`/`warning`/`suggestion`); `comment` e `analysis` não vazios; `impactPaths` array não vazio com paths não vazios; `developerAction` ∈ {`fix-code`, `escalate`} (nunca `resolve-comment`). `suggestedFix` é **opcional**. **Omitir** `SCORE_MIN` mantém default **6** — pipelines existentes sem a variável não precisam de alteração.
 
 Reviews fora desse contrato são **descartados** antes da publicação. A filtragem autoritativa roda uma única vez em `parseCodeReviewResponse`; `setPullRequestComments` mantém um filtro defensivo no boundary de POST do ADO. Dupla proteção: prompt + código.
 
@@ -241,7 +241,7 @@ Reviews fora desse contrato são **descartados** antes da publicação. A filtra
 - Sanitização de aspas/quebras se `JSON.parse` falhar; `reviews` não-array lança erro descritivo.
 - **Achatamento (Flatten):** Expande os agrupamentos de `relatedOccurrences` gerando múltiplos objetos `CodeReviewItem` separados, preservando a `analysis` mas distribuindo as threads pelos arquivos corretos (anti whack-a-mole).
 - Normalização defensiva de `fileName`, `lineNumber`, `impactPaths` e severidade.
-- `parseCodeReviewResponse` descarta reviews que não passam em `isPublishableReview` (score 6–10 + campos obrigatórios).
+- `parseCodeReviewResponse` descarta reviews que não passam em `isPublishableReview` (score ≥ `SCORE_MIN`, default 6, + campos obrigatórios).
 
 Exit codes:
 

@@ -190,6 +190,8 @@ export interface ReviewerConfig {
 
   /** Orçamento de rodadas fix→review antes de escalar para revisão humana (0 desabilita). */
   maxRounds: number;
+  /** Score mínimo (inclusive) para publicar issue como thread na PR. */
+  scoreMin: number;
   stack: string;
   stackPromptPath: string | null;
   stackSource: 'cli' | 'env' | 'detected' | 'fallback';
@@ -216,6 +218,7 @@ export interface CliArgs {
   stack?: string;
   customPrompt?: string;
   includePatterns?: string;
+  scoreMin?: number;
 }
 
 const DEFAULT_INCLUDE = ['**/*.cs', '**/*.ts', '**/*.html', '*.cs', '*.ts', '*.html'];
@@ -224,6 +227,21 @@ const DEFAULT_MODEL = DEFAULT_CURSOR_REVIEWER_MODEL;
 const BASE_EXCLUDE = ['*/proxy/*', '*/bin/*', '*/obj/*', '*.md', '*.csproj', 'secret.txt'];
 
 const DEFAULT_MAX_ROUNDS = 5;
+const DEFAULT_SCORE_MIN = 6;
+const MAX_SCORE_MIN = 10;
+
+/** Lê um inteiro 0–10 de env/CLI; usa fallback se ausente, inválido ou macro ADO. */
+export function parseScoreMin(value: string | number | undefined, fallback: number = DEFAULT_SCORE_MIN): number {
+  if (typeof value === 'number') {
+    return Number.isInteger(value) && value >= 0 && value <= MAX_SCORE_MIN ? value : fallback;
+  }
+  const trimmed = value?.trim() ?? '';
+  if (!trimmed || isUnexpandedPipelineMacro(trimmed)) {
+    return fallback;
+  }
+  const parsed = Number.parseInt(trimmed, 10);
+  return Number.isInteger(parsed) && parsed >= 0 && parsed <= MAX_SCORE_MIN ? parsed : fallback;
+}
 
 /** Lê um inteiro >= 0 de env; usa fallback se ausente, inválido ou macro ADO. */
 function parseNonNegativeInt(value: string | undefined, fallback: number): number {
@@ -299,6 +317,10 @@ function parseArgs(argv: string[]): CliArgs {
       args.includePatterns = arg.slice(19);
       continue;
     }
+    if (arg.startsWith('--score-min=')) {
+      args.scoreMin = Number(arg.slice(12));
+      continue;
+    }
 
     switch (arg) {
       case '--help':
@@ -372,6 +394,10 @@ function parseArgs(argv: string[]): CliArgs {
         break;
       case '--include-patterns':
         args.includePatterns = next;
+        i++;
+        break;
+      case '--score-min':
+        args.scoreMin = Number(next);
         i++;
         break;
       default:
@@ -712,6 +738,11 @@ export function loadConfig(argv: string[] = process.argv.slice(2)): ReviewerConf
     projectName: resolvedProject.projectName,
     version: resolvedProject.version,
     maxRounds: parseNonNegativeInt(process.env.CURSOR_REVIEWER_MAX_ROUNDS, DEFAULT_MAX_ROUNDS),
+    scoreMin: parseScoreMin(
+      cli.scoreMin != null && Number.isFinite(cli.scoreMin)
+        ? cli.scoreMin
+        : process.env.SCORE_MIN,
+    ),
     stack: stackConfig.name,
     stackPromptPath,
     stackSource,
@@ -743,13 +774,14 @@ Opções:
   --stack NAME           Stack tecnológica para o review (ABP/Angular, PHP/Laravel, Next.js/React, TypeScript, Custom. Default: ABP/Angular)
   --custom-prompt VAL    Caminho do arquivo ou string de prompt quando a stack é Custom (requerido para --stack=Custom)
   --include-patterns VAL Lista separada por vírgulas de padrões glob de inclusão (sobrescreve o default da stack)
+  --score-min N          Score mínimo (inclusive) para publicar issue como thread (default: 6)
 
 Pré-requisitos do projeto alvo (obrigatórios — o script encerra se ausentes):
   skills/CODE_REVIEW.md
   skills/SYSTEM_PROMPT.md
 
 Variáveis: CURSOR_API_KEY, CURSOR_REVIEWER_TARGET_BRANCH (default: refs/heads/master),
-  CURSOR_REVIEWER_INCLUDE_UNCOMMITTED, CURSOR_REVIEWER_SEED_TEST,
+  SCORE_MIN (default: 6), CURSOR_REVIEWER_INCLUDE_UNCOMMITTED, CURSOR_REVIEWER_SEED_TEST,
   CURSOR_REVIEWER_REVIEW_SELF, CURSOR_REVIEWER_EXTRA_EXCLUDE_PATTERNS, ...
 
 Branches:

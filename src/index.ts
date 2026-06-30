@@ -69,7 +69,7 @@ async function main(): Promise<void> {
           ? 'autodetectada'
           : 'fallback padrão';
   logger.info(`Stack: ${config.stack} (${stackSourceLabel})`);
-  logger.info(`Verbosity: ${config.verbose ? 'VERBOSE' : 'QUIET'}`);
+  logger.info(`Score mínimo para threads: ${config.scoreMin}`);
   logger.info(`Source: ${config.sourceBranch} → Target: ${config.targetBranch}`);
   logger.info(`Repository Root: ${config.repoRoot}`);
   logger.info(`Code-review skill: ${config.skillPath}`);
@@ -227,7 +227,7 @@ async function main(): Promise<void> {
     logger.info(`Tempo do agente: ${formatElapsedMs(agentElapsed)}`);
   }
   const rawResponse = parseAgentReviewOutput(agentResult.fullText);
-  const parsed = parseCodeReviewResponse(rawResponse);
+  const parsed = parseCodeReviewResponse(rawResponse, config.scoreMin);
 
   logger.info(`Reviews: ${parsed.reviews.length}`);
   logger.info(`Resolved threads (agent): ${parsed.resolvedThreads.length}`);
@@ -253,6 +253,7 @@ async function main(): Promise<void> {
   const wouldPostReviewsPre = getNewReviewsFromPlan(
     getCodeReviewPostingPlan(parsed, gatePendingBeforePost.length > 0).reviewsJson,
     reviewContext.existingKeys,
+    config.scoreMin,
   );
 
   // Frente C — orçamento de rodadas + escalonamento (garantia de convergência).
@@ -283,6 +284,7 @@ async function main(): Promise<void> {
     ? getNewReviewsFromPlan(
         getCodeReviewPostingPlan(effectiveParsed, gatePendingBeforePost.length > 0).reviewsJson,
         reviewContext.existingKeys,
+        config.scoreMin,
       )
     : wouldPostReviewsPre;
 

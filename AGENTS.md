@@ -1,47 +1,47 @@
-# Cursor Reviewer — Instruções e Referência para Agentes
+# Cursor Reviewer — Referência para Agentes
 
-Este arquivo serve como guia de referência técnico e operacional para agentes de IA que operam neste repositório, seja atuando como **analisador de PRs** (executando o review) ou como **desenvolvedor do próprio runner** (realizando correções e implementando melhorias).
-
----
-
-## 1. Escopo e Modo de Operação (Somente Leitura)
-
-O `cursor-reviewer` é uma ferramenta agêntica de Code Review automatizado executada via `@cursor/sdk`. O runner atua estritamente em **modo de leitura (review-only)**, mapeando issues e publicando-as na PR sem alterar arquivos do repositório alvo.
-
-### 🛑 Diretrizes de Segurança (Sandbox)
-*   **Sandbox Ativo:** O SDK é executado com a opção `local.sandboxOptions.enabled` ativada em `src/agent/stream.ts`.
-*   **Proibições Estritas:** É proibido realizar commits, push, alterar o histórico Git (além de diffs/logs simples), aplicar correções automáticas no código analisado, rodar formatters/linters ou modificar arquivos no repositório sob revisão.
-*   **Permissões:** É permitido ler arquivos e diretórios (`read`, `grep`, `glob`, busca semântica), inspecionar diffs e declarar correções sugeridas nos campos JSON de saída.
+Guia operacional para agentes de IA neste repositório. Dois perfis de uso:
+- **Agente Analisador** — invocado pelo runner para revisar uma PR.
+- **Agente Desenvolvedor** — modifica ou estende o próprio runner.
 
 ---
 
-## 2. Para Agentes Analisadores (Executando o Code Review)
+## Comportamento Invariável
 
-Quando você for invocado pelo runner para analisar uma PR, você deve seguir estritamente o processo abaixo.
+- **Não implemente o que não foi pedido expressamente.** Ante qualquer ambiguidade ou bifurcação de design, pare e pergunte.
+- **Seja crítico, não complacente.** Questione premissas; recuse sugestões sem sentido arquitetural com justificativa técnica.
+- **Simplicity first.** Mudanças mínimas, sem workarounds, sem over-engineering.
 
-### 2.1 Análise em Duas Fases
-1.  **Fase 1: Triagem (Mapa de Candidatos):**
-    *   Examine o diff git pré-carregado no prompt ou use `git diff` nos arquivos alterados.
-    *   Identifique linhas alteradas que contenham potenciais falhas reais (segurança, concorrência, vazamento de recursos, bugs lógicos).
-    *   **Descarte imediatamente:** "nits", questões de estilo/formatação, preferências pessoais de escrita de código ou alertas meramente conceituais sem um caminho plausível de execução falha.
-2.  **Fase 2: Investigação Profunda e Validação:**
-    *   Para cada candidato pré-selecionado, use tools (`read_file`, `grep_search`) para ler o arquivo inteiro, símbolos relacionados e arquivos adjacentes (ex: testes unitários, entidades, chamadores, middlewares).
-    *   Formule e documente no campo `analysis` do JSON a prova estruturada:
-        1.  **Evidência lida** (símbolos e arquivos investigados).
-        2.  **Cenário de falha executável** (como o bug ocorre na prática).
-        3.  **Proteção ausente** (por que testes/validações atuais não bloqueiam a falha).
-        4.  **Descartes** (hipóteses alternativas que foram testadas e rejeitadas).
-    *   Se não conseguir preencher as 4 etapas com provas coletadas via tools, **descarte** o achado.
+---
 
-### 2.2 Consulta ao Harness do Projeto Alvo
-Os critérios e checklists específicos de negócio residem no repositório analisado (`repoRoot`). Consulte sempre nesta ordem (se existirem):
-1.  `AGENTS.md` do projeto alvo.
-2.  `.cursor/rules/main.mdc` (Índice de regras) ou as regras pré-mapeadas enviadas pelo prompt.
-3.  `.agents/skills/code-review/SKILL.md` (Checklist de auditoria).
-4.  Subpasta `docs/` para regras de domínio/arquitetura.
+## 1. Agente Analisador
 
-### 2.3 Contrato de Saída JSON
-Sua resposta deve conter **exclusivamente** um único bloco markdown JSON contendo as chaves `reviews`, `resolvedThreads` e `reviewSummary`.
+### Modo de operação
+- Estritamente **somente leitura**. Proibido: commits, push, alteração de arquivos no repositório alvo, formatters/linters.
+- Permitido: `read_file`, `grep_search`, `glob`, busca semântica, inspeção de diff.
+- O sandbox (`local.sandboxOptions.enabled` em `src/agent/stream.ts`) reforça esse contrato no nível do SDK.
+
+### Análise em duas fases
+
+**Fase 1 — Triagem:** examine o diff. Identifique candidatos com falhas reais (segurança, concorrência, vazamento de recursos, bugs lógicos). Descarte imediatamente: nits, estilo, preferências e alertas conceituais sem caminho executável de falha.
+
+**Fase 2 — Investigação:** para cada candidato, use `read_file` e `grep_search` para ler o arquivo completo, testes, chamadores e middlewares relacionados. Um achado só é válido se você conseguir preencher as quatro etapas abaixo no campo `analysis`:
+1. **Evidência** — arquivos e símbolos lidos.
+2. **Cenário** — como a falha ocorre na prática.
+3. **Proteção ausente** — por que validações/testes atuais não bloqueiam a falha.
+4. **Descartes** — hipóteses alternativas testadas e rejeitadas.
+
+Se não conseguir preencher as quatro etapas, descarte o achado.
+
+### Consulta ao harness do projeto alvo
+Antes de revisar, consulte no `repoRoot` (nesta ordem, se existirem):
+1. `AGENTS.md` do projeto.
+2. `.cursor/rules/main.mdc` ou as regras pré-mapeadas no prompt.
+3. `.agents/skills/code-review/SKILL.md`.
+4. `docs/` — regras de domínio e arquitetura.
+
+### Contrato de saída JSON
+Responda **exclusivamente** com um bloco JSON contendo:
 
 ```json
 {
@@ -50,92 +50,80 @@ Sua resposta deve conter **exclusivamente** um único bloco markdown JSON conten
       "fileName": "/src/MinhaClasse.cs",
       "lineNumber": 15,
       "severity": "critical",
-      "comment": "Descrição curta e amigável da falha (sem blocos de código).",
+      "comment": "Descrição curta da falha (sem blocos de código).",
       "score": 9,
       "developerAction": "fix-code",
       "analysis": "1. Evidência: ... 2. Cenário: ... 3. Proteção: ... 4. Descarte: ...",
       "impactPaths": ["/src/MinhaClasse.cs", "/src/Middlewares/Auth.cs"],
-      "suggestedFix": "```csharp\n// Correção cirúrgica clara\n```"
+      "suggestedFix": "```csharp\n// correção cirúrgica\n```"
     }
   ],
   "resolvedThreads": [
-    {
-      "threadId": 12345,
-      "note": "Corrigido adicionando validação de nulo na linha 15."
-    }
+    { "threadId": 12345, "note": "Corrigido na linha 15." }
   ],
   "reviewSummary": ""
 }
 ```
 
-### 2.4 Validação do Gate de Publicação
-Comentários que violarem os critérios abaixo serão descartados programaticamente por `src/ado/review-validation.ts`:
+### Regras do gate (`src/ado/review-validation.ts`)
+Achados que violarem qualquer regra abaixo são descartados automaticamente:
 
-*   **`score`:** Deve ser um número inteiro finito entre **6 e 10**. Achados com score ≤ 5 serão descartados pelo gate.
-*   **`fileName` & `lineNumber`:** Devem apontar para caminhos e linhas alteradas no diff (> 0).
-*   **`severity`:** Apenas `critical` (score 9-10), `warning` (score 6-8) ou `suggestion` (score 6-7).
-*   **`developerAction`:** Deve ser `fix-code` ou `escalate` (não utilize `resolve-comment` em novos reviews).
-*   **`suggestedFix`:** Opcional. Use blocos de código específicos por linguagem. **Nunca** use a cerca ` ```suggestion ` se o provedor for Azure DevOps (o gate a normaliza, mas prefira omitir). Em GitHub, você pode usar a cerca ` ```suggestion ` para habilitar o botão de aplicação automática.
-*   **`analysis`:** Deve detalhar os 4 passos da prova estruturada.
-*   **`impactPaths`:** Array contendo obrigatoriamente ao menos um caminho de arquivo lido que sustente a investigação.
+| Campo | Regra |
+|---|---|
+| `score` | Inteiro entre **SCORE_MIN–10** (default `SCORE_MIN=6`). Score abaixo do mínimo é descartado. Omitir `SCORE_MIN` / `--score-min` preserva o limiar 6. |
+| `fileName` + `lineNumber` | Devem apontar para linhas alteradas no diff (lineNumber > 0). |
+| `severity` | `critical` (score 9–10) · `warning` (6–8) · `suggestion` (6–7) |
+| `developerAction` | `fix-code` ou `escalate`. Nunca `resolve-comment` em reviews novos. |
+| `suggestedFix` | Opcional. Em Azure DevOps, não use a cerca ` ```suggestion `. Em GitHub, pode usar para habilitar o botão de aplicação automática. |
+| `analysis` | Obrigatório com as 4 etapas da prova estruturada. |
+| `impactPaths` | Array com ao menos um arquivo lido que sustente a investigação. |
 
-### 2.5 Mecanismo de Rodadas e Escalonamento
-O runner acompanha as iterações na PR pelo marcador `<!-- reviewer-round-state -->`. Se a rodada atual exceder `CURSOR_REVIEWER_MAX_ROUNDS` (default: 5):
-*   Você deve suprimir e omitir novos achados de severidade `warning` e `suggestion`.
-*   Apenas achados `critical` (segurança ou quebra de invariantes críticos de negócio) continuam sendo publicados.
-*   O runner adicionará um aviso na PR solicitando **handoff para revisão humana**.
+### Rodadas e escalonamento
+O runner rastreia iterações pelo marcador `<!-- reviewer-round-state -->`. Ao exceder `CURSOR_REVIEWER_MAX_ROUNDS` (padrão: 5):
+- Suprima achados `warning` e `suggestion`.
+- Publique apenas `critical` (segurança ou quebra de invariantes de negócio).
+- O runner adicionará aviso de handoff para revisão humana na PR.
 
-### 2.6 Autoexclusão do Runner
-Por padrão, o runner exclui a si mesmo do diff Git para evitar loops infinitos de autorevisão (a menos que a variável `CURSOR_REVIEWER_REVIEW_SELF` seja definida como `true`).
+O runner se autoexclui do diff por padrão (evita loops). Defina `CURSOR_REVIEWER_REVIEW_SELF=true` para revisar o próprio codebase.
 
 ---
 
-## 3. Para Agentes Desenvolvedores (Modificando o Codebase)
+## 2. Agente Desenvolvedor
 
-Se o seu objetivo é modificar ou estender a lógica deste repositório, atente-se às seguintes orientações.
+### Arquitetura
 
-### 3.1 Arquitetura do Runner
-*   `src/index.ts` : Ponto de entrada. Prepara o workspace Git, inicializa o provedor correto, coleta o contexto de PR e Work Items, dispara a sessão agêntica via SDK, passa a resposta do agente pelo parser/gate e publica os comentários.
-*   `src/config.ts` : Declara e valida argumentos CLI e variáveis de ambiente.
-*   `src/provider/` : Contém a interface `PlatformProvider` e as implementações `AdoProvider` (Azure DevOps) e `GithubProvider` (GitHub).
-*   `src/ado/` : Contém validadores (`review-validation.ts`), formatadores de comentário (`format-thread.ts`), controle de rodadas (`round-state.ts`) e o gate lógico (`gate.ts`).
-*   `src/agent/` : Código de streaming do agente, modelagem e uso de tokens.
-*   `skills/stacks/` : Contém os arquivos markdown de recomendações específicas para cada stack.
+| Arquivo/Pasta | Responsabilidade |
+|---|---|
+| `src/index.ts` | Ponto de entrada: prepara workspace, coleta contexto de PR, dispara agente, posta comentários. |
+| `src/config.ts` | Argumentos CLI e variáveis de ambiente. |
+| `src/agent/stream.ts` | **Único acoplamento ao `@cursor/sdk`.** Streaming, timeout, sandbox, token usage. |
+| `src/agent/runner.ts` | Constrói o prompt e chama `stream.ts`. |
+| `src/provider/` | Interface `PlatformProvider` + implementações `AdoProvider` e `GithubProvider`. |
+| `src/ado/` | Gate (`gate.ts`), validação (`review-validation.ts`), formatação (`format-thread.ts`), rodadas (`round-state.ts`). |
+| `skills/stacks/` | Recomendações por stack em Markdown. |
 
-### 3.2 Execução de Testes e Validação
-Antes de submeter alterações ou finalizar tarefas de desenvolvimento, você **deve** certificar-se de que os testes passam e que o workspace está higienizado:
+### Comandos de validação (obrigatórios antes de finalizar)
 
-1.  **Executar Typecheck e Testes Unitários:**
-    ```bash
-    npm test
-    ```
-2.  **Validação E2E com Agente (Seed Test):**
-    Este comando instala fixtures simulando defeitos propositais (`angular` e `src`), roda o reviewer localmente com `--dry-run --seed-test` e verifica se os defeitos em `SEED-ISSUES.md` foram detectados:
-    ```bash
-    npm run test:seed
-    ```
-3.  **Higiene do Workspace:**
-    Não commite arquivos temporários (como `.tmp-*`, logs temporários ou fixtures que permaneceram instaladas). Certifique-se de que as fixtures seed foram desinstaladas e execute a validação de limpeza:
-    ```bash
-    npm run seed:verify-clean
-    ```
+```bash
+npm test                  # typecheck + testes unitários
+npm run test:seed         # E2E: instala fixtures, roda dry-run, valida detecção dos defeitos em SEED-ISSUES.md
+npm run seed:verify-clean # garante que fixtures foram desinstaladas e workspace está limpo
+```
 
-### 3.3 Boas Práticas
-*   **Diferenças de Provedores:** Certifique-se de que qualquer nova feature funcione corretamente tanto no Azure DevOps quanto no GitHub. O tratamento de markdown, a API GraphQL/REST e o formato de sugestões interativas são sensivelmente distintos entre as duas plataformas.
-*   **Compatibilidade de Stacks:** Ao adicionar ou modificar stacks, certifique-se de manter compatibilidade com o comportamento de fallback padrão (`ABP/Angular`) e valide que a estratégia de autodetecção funciona e é coberta por testes no `test/config.test.ts`.
-*   **Sincronização de Docs:** Ao alterar o validador de gate (`review-validation.ts`), o controle de rodadas (`round-state.ts`), a lógica de diff, as stacks suportadas ou prompts do sistema, lembre-se de atualizar em conjunto este arquivo `AGENTS.md`, o `README.md` e as referências em `docs/`.
+### Boas práticas
 
-### 3.4 Skills locais do repositório (`.agents/skills/`)
-As skills específicas do ecossistema `cursor-reviewer` vivem neste repo e não são compartilhadas externamente:
-*   `code-review-self` — Revisão agêntica somente-leitura pelo harness/IDE, espelhando o pipeline de `src/index.ts` sem acionar o `@cursor/sdk`. Use para revisar PR localmente ou em dry-run pelo agente.
-*   `megabrain` — Revisão iterativa com threads numeradas (`[Thread #N]`); avalia correções em rodadas subsequentes sem reabrir feedback já resolvido.
-*   `solve-pr` — Busca threads ativas no GitHub, implementa correções sugeridas, faz commit/push e aguarda a próxima rodada do runner.
-Ao adicionar ou alterar qualquer uma destas skills, atualize em conjunto este `AGENTS.md` e o `README.md`.
+- **Provedores:** toda nova feature deve funcionar em Azure DevOps **e** GitHub. Markdown, GraphQL/REST e sugestões interativas diferem entre plataformas.
+- **Stacks:** ao adicionar/modificar stacks, mantenha compatibilidade com o fallback `ABP/Angular` e cubra a autodetecção em `test/config.test.ts`.
+- **Sincronização de docs:** ao alterar `review-validation.ts`, `round-state.ts`, lógica de diff, stacks suportadas ou prompts do sistema, atualize este `AGENTS.md`, o `README.md` e `docs/` em conjunto.
 
-*Para mais informações sobre outras diretrizes e skills genéricas e reutilizáveis entre projetos, consulte o repositório [workflow-skills](https://github.com/jpolvora/workflow-skills).*
+### Skills locais (`.agents/skills/`)
 
+| Skill | Uso |
+|---|---|
+| `code-review-self` | Review agêntico somente-leitura via IDE/harness, sem acionar o `@cursor/sdk`. |
+| `megabrain` | Review iterativo com threads numeradas (`[Thread #N]`); acompanha correções entre rodadas. |
+| `solve-pr` | Busca threads ativas no GitHub, implementa correções, faz commit/push e aguarda o runner. |
 
-### 3.5 Diretriz Crítica de Comportamento (Para Agentes)
-*   **Postura Analítica e Crítica:** Ao responder ao usuário e elaborar sugestões arquiteturais ou de código, **não concorde passivamente** ou tente apenas "agradar" o usuário. Seja profundamente crítico, questione premissas e avalie com rigor técnico as propostas enviadas. 
-*   **Foco no Projeto:** Este deve ser o seu comportamento padrão invariável. Implemente ou sugira **somente o que fizer real sentido** estrutural e arquitetural para o projeto, justificando tecnicamente as recusas ou alternativas.
-*   **Atenção ao Escopo e Decisões:** **NUNCA implemente o que não foi pedido expressamente.** Não presuma decisões de design ou arquitetura em nome do usuário. Na presença de qualquer ambiguidade ou múltiplas opções de caminho, **PARE a execução e pergunte** ao usuário para confirmação. Siga esta regra com absoluto rigor.
+Ao adicionar ou alterar skills, atualize este arquivo e o `README.md`.
+
+> Para skills genéricas e reutilizáveis entre projetos, consulte [workflow-skills](https://github.com/jpolvora/workflow-skills).

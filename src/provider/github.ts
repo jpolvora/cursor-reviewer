@@ -346,7 +346,9 @@ These issues were reported in a previous round and already resolved/closed. Do *
   ): Promise<PostedReviewThread[]> {
     const posted: PostedReviewThread[] = [];
     const reviewsObject = JSON.parse(reviewsJson) as { reviews: CodeReviewItem[] };
-    const reviews = (reviewsObject.reviews ?? []).filter(isPublishableReview);
+    const reviews = (reviewsObject.reviews ?? []).filter((review) =>
+      isPublishableReview(review, this.config.scoreMin),
+    );
     const newReviews = reviews.filter((review) => !isDuplicateReview(review, existingKeys));
 
     if (newReviews.length === 0) {

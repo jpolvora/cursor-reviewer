@@ -16,6 +16,7 @@ const ISOLATED_CI_ENV: Record<string, undefined> = {
   SYSTEM_ACCESSTOKEN: undefined,
   AZURE_DEVOPS_EXT_PAT: undefined,
   CURSOR_REVIEWER_STACK: undefined,
+  SCORE_MIN: undefined,
 };
 
 function withEnv(env: Record<string, string | undefined>, action: () => void): void {
@@ -520,6 +521,45 @@ describe('loadConfig', () => {
           rmSync(dir, { recursive: true, force: true });
         }
       });
+    });
+  });
+
+  it('usa SCORE_MIN=6 por padrão', () => {
+    withEnv({ CURSOR_API_KEY: 'cursor_test', SCORE_MIN: undefined }, () => {
+      const config = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature']);
+      assert.equal(config.scoreMin, 6);
+    });
+  });
+
+  it('aceita --score-min e SCORE_MIN', () => {
+    withEnv({ CURSOR_API_KEY: 'cursor_test' }, () => {
+      const fromCli = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature', '--score-min', '4']);
+      assert.equal(fromCli.scoreMin, 4);
+
+      withEnv({ SCORE_MIN: '5' }, () => {
+        const fromEnv = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature']);
+        assert.equal(fromEnv.scoreMin, 5);
+      });
+    });
+  });
+
+  it('CLI --score-min tem precedência sobre SCORE_MIN', () => {
+    withEnv({ CURSOR_API_KEY: 'cursor_test', SCORE_MIN: '8' }, () => {
+      const config = loadConfig([
+        '--dry-run',
+        '--source-branch',
+        'refs/heads/feature',
+        '--score-min',
+        '4',
+      ]);
+      assert.equal(config.scoreMin, 4);
+    });
+  });
+
+  it('ignora SCORE_MIN inválido e usa default 6', () => {
+    withEnv({ CURSOR_API_KEY: 'cursor_test', SCORE_MIN: 'invalid' }, () => {
+      const config = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature']);
+      assert.equal(config.scoreMin, 6);
     });
   });
 });

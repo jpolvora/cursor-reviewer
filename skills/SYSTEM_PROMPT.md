@@ -71,7 +71,7 @@ Retorne **exclusivamente** um único bloco JSON válido (fence com tag `json`). 
 
 | Critério | Regra |
 |----------|--------|
-| `score` | **6–10** entram em `reviews`; **≤ 5 omita** (não vira thread) |
+| `score` | **SCORE_MIN–10** entram em `reviews` (default **6–10**); abaixo do mínimo → omita (não vira thread). O runner injeta o limiar efetivo em `prompt.ts`; omitir `SCORE_MIN` mantém **6**. |
 | `developerAction` | `fix-code` ou `escalate` — nunca `resolve-comment` em reviews novos |
 | `lineNumber` | Inteiro **> 0**, na linha alterada mais responsável |
 | `comment` | Objetivo; sem prefixos de severidade nem blocos de código |

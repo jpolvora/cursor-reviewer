@@ -78,6 +78,7 @@ export class AdoProvider implements PlatformProvider {
       reviewsJson,
       existingKeys,
       log,
+      this.config.scoreMin,
     );
   }
 
