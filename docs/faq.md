@@ -274,9 +274,21 @@ Caso nenhuma das heurísticas acima identifique uma stack, o runner assume a sta
 
 *Evidência:* `buildPullRequestContextForLlm` em `src/ado/pull-request.ts`.
 
+### Posso usar o título/descrição do Work Item no `reviewSummary`?
+
+**Resposta:** **Não.** `reviewSummary` (e menções ao “que a PR faz”) devem usar **Título da PR** / **Descrição da PR**. User Story, Task e Bug têm textos próprios — úteis para validar requisitos/AC, mas **não** substituem a descrição da PR. O prompt marca WIs como “contexto de produto (não é a PR)”.
+
+*Evidência:* `buildVerdictAndAdoPolicy` em `src/agent/prompt.ts`; `buildWorkItemContextForLlm` em `src/ado/work-items.ts`.
+
+### Por que `#694` no resumo aparece como Work Item (ícone 📖) no Azure DevOps?
+
+**Resposta:** No ADO, `#N` na conversa da PR **sempre** auto-linka como Work Item N — não como Pull Request. Escreva `PR 694` (sem `#`). O runner ainda sanitiza o texto em `sanitizeReviewSummaryForPlatform` antes de publicar (troca `#N` da PR por `PR N`, `#N` de WI por `Work Item N`, e corrige título de WI colado no lugar do título da PR quando possível).
+
+*Evidência:* `src/ado/review-summary.ts`; publicação em `setPullRequestReviewSummary`.
+
 ### Como o agente usa US/Task no code-review?
 
-**Resposta:** Fase 1 incorpora descrição PR, work items e threads como **contexto de escopo**. Fase 2 confronta diff com critérios de aceite. AC evidente faltando → tendência `critical`; parcial → `warning`. O WI é **contexto**, não checklist infinita — o agente não inventa requisitos. Planos locais (`.cursor/plans/`) **não** são buscados automaticamente; só se lidos via tools na Fase 2.
+**Resposta:** Fase 1 incorpora descrição PR, work items e threads **sem misturar fontes**. Fase 2 confronta diff com critérios de aceite. AC evidente faltando → tendência `critical`; parcial → `warning`. O WI é **contexto de produto**, não checklist infinita — o agente não inventa requisitos nem copia o título da US como se fosse o da PR. Planos locais (`.cursor/plans/`) **não** são buscados automaticamente; só se lidos via tools na Fase 2.
 
 *Evidência:* `buildTwoPhaseWorkflow` em `src/agent/prompt.ts`; `scripts/code-review/prompts/exemplo.codereviewprompt.md`.
 
@@ -438,9 +450,9 @@ Caso nenhuma das heurísticas acima identifique uma stack, o runner assume a sta
 
 ### Como funciona a política `reviews` vs `reviewSummary`?
 
-**Resposta:** Se `reviews` e `reviewSummary` juntos → mantém reviews, limpa summary. Reviews com `critical` + summary → summary ignorado. Sem reviews, sem críticos, sem threads pendentes do bot → publica `reviewSummary` (thread **fechada**).
+**Resposta:** Se `reviews` e `reviewSummary` juntos → mantém reviews, limpa summary. Reviews com `critical` + summary → summary ignorado. Sem reviews, sem críticos, sem threads pendentes do bot → publica `reviewSummary` (thread **fechada**). O texto do resumo deve referenciar a **descrição da PR**, não de Work Items.
 
-*Evidência:* `getCodeReviewPostingPlan` em `src/ado/post-comments.ts`.
+*Evidência:* `getCodeReviewPostingPlan` em `src/ado/post-comments.ts`; veredito em `src/agent/prompt.ts`.
 
 ### O que aparece na build do Azure DevOps?
 

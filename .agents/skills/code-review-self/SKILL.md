@@ -86,8 +86,8 @@ Execute em paralelo quando possível:
 
 - **Provider/contexto** — apenas se houver PR id e provedor configurado. Para GitHub, use scripts em `.agents/skills/solve-pr/scripts/` (fetch_threads.cjs) ou a API. Para ADO, use os scripts/providers existentes se disponíveis. Em LOG-ONLY, pule.
 - **Threads existentes** — liste threads ativas e já resolvidas do bot (marcador `<!-- reviewer-round-state -->`). Construa `existingKeys` (dedup: `normalizedPath|line:N`) e a "Memória Intra-PR" (não re-levantar resolvido sem nova evidência).
-- **Work items** — até 10 vinculados (ADO) com Type/Title/State/Descrição/Critérios.
-- **Descrição da PR** — título + descrição em markdown.
+- **Work items** — até 10 vinculados (ADO) com Type/Title/State/Descrição/Critérios. São **contexto de produto**, não a descrição da PR.
+- **Descrição da PR** — título + descrição em markdown (fonte canônica do escopo da PR em `reviewSummary`/comentários).
 - **Rules pré-mapeadas** — `.cursor/rules/*.mdc` (frontmatter `description`, `globs`, `alwaysApply`).
 
 PR grande (>20 arquivos elegíveis): aviso obrigatório — execute as duas fases em **todos** os arquivos, sem atalhos.
@@ -126,7 +126,7 @@ Para cada achado comprovado, use `grep`/`glob` procurando **ocorrências irmãs 
 2. **Completude:** percorreu todos os elegíveis; cada achado real comprovado incluído.
 3. **Não duplique** threads existentes, inclusive resolvidas (não re-litigue sem nova evidência).
 4. `resolvedThreads`: somente se verificou via tools que corrigido.
-5. PR sem issues novas: `"reviews": []` + `reviewSummary` positivo.
+5. **Resumo final (`reviewSummary`)** — só com `"reviews": []` e sem issues/críticas a virar thread. Cite o **título/descrição da PR** (`## Pull Request`), **nunca** de Work Item / User Story / Task. IDs e textos de PR ≠ WI. No ADO escreva `PR 694` **sem** `#` (`#694` vira link de Work Item).
 6. Emita **somente** o bloco JSON.
 
 ---

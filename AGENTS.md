@@ -65,6 +65,8 @@ Responda **exclusivamente** com um bloco JSON contendo:
 }
 ```
 
+`reviewSummary` só quando `"reviews": []` e não há issues/críticas pendentes a virar thread. O texto deve citar o **título/descrição da PR** (seção `## Pull Request`) — **nunca** título/descrição/AC de Work Item, User Story ou Task. IDs e textos de PR ≠ WI/Task. No Azure DevOps, mencione `PR 694` **sem** `#` — `#694` auto-linka como Work Item (ícone 📖), não como Pull Request. O runner sanitiza o resumo na publicação (`sanitizeReviewSummaryForPlatform`).
+
 ### Regras do gate (`src/ado/review-validation.ts`)
 Achados que violarem qualquer regra abaixo são descartados automaticamente:
 

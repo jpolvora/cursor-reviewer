@@ -100,7 +100,12 @@ describe('buildAgentPrompt', () => {
 
     assert.ok(prompt.includes('**Pull Request ID (Azure DevOps):** #789'));
     assert.ok(prompt.includes('SYSTEM_PULLREQUEST_PULLREQUESTID'));
-    assert.ok(prompt.includes('não confunda o ID da PR com IDs de Work Items'));
+    assert.ok(prompt.includes('não confunda o **ID da PR** com IDs de Work Items'));
+    assert.ok(prompt.includes('título/descrição da **PR** ≠ título/descrição de **Work Item / Task**'));
+    assert.ok(prompt.includes('Resumo final (`reviewSummary`)'));
+    assert.ok(prompt.includes('nunca** título/descrição/AC de Work Item'));
+    assert.ok(prompt.includes('escreva `PR 694`') || prompt.includes('sem** `#`'));
+    assert.ok(prompt.includes('auto-linka como **Work Item**') || prompt.includes('vira link de **Work Item**'));
   });
 
   it('inclui diff embutido e descrição da PR quando fornecidos', () => {
@@ -110,7 +115,10 @@ describe('buildAgentPrompt', () => {
 
     const ctx: PromptContext = {
       ...promptContext,
-      prDescriptionContext: '## Pull Request (Azure DevOps)\n\n> **Pull Request ID:** #789\n\n**Título:** Equipamentos Florestais',
+      prDescriptionContext:
+        '## Pull Request (Azure DevOps)\n\n> **Pull Request ID:** #789\n\n**Título da PR:** Equipamentos Florestais',
+      workItemContext:
+        '## Linked Work Items\n\n> **Contexto de produto (não é a PR):**\n\n### Work Item #100 — User Story\n- **Title (Work Item):** CRUD de Talhões',
       diffSection: {
         mode: 'full',
         content: '```diff\n+added line\n```',
@@ -129,6 +137,8 @@ describe('buildAgentPrompt', () => {
     assert.ok(prompt.includes('+added line'));
     assert.ok(prompt.includes('Equipamentos Florestais'));
     assert.ok(prompt.includes('Use o **diff pré-carregado**'));
+    assert.ok(prompt.includes('Contexto de produto (não é a PR)'));
+    assert.ok(prompt.includes('sem misturar fontes'));
   });
 
   it('inclui metadados da stack e arquivo de recomendação no prompt', () => {

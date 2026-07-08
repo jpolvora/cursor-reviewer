@@ -29,14 +29,18 @@ export function buildPullRequestContextForLlm(
     '## Pull Request (Azure DevOps)',
     '',
     `> **Pull Request ID:** #${pullRequestId} — use **somente este número** ao referenciar a PR. IDs numéricos de Work Items (User Story, Task, Bug) na seção "Linked Work Items" são **diferentes** do ID da PR.`,
+    '>',
+    '> **Fonte canônica do escopo da PR:** o **Título** e a **Descrição** abaixo descrevem **esta Pull Request**. Em `reviewSummary`, comentários e menções ao "que a PR faz", cite **estes** campos — **não** o título/descrição/AC de Work Items, User Stories ou Tasks linkados (são artefatos de produto distintos).',
+    '>',
+    `> **Menção no texto publicado:** escreva \`PR ${pullRequestId}\` (**sem** \`#\`). No Azure DevOps, \`#${pullRequestId}\` auto-linka como **Work Item**, não como Pull Request.`,
     '',
   ];
 
   if (title) {
-    lines.push(`**Título:** ${title}`);
+    lines.push(`**Título da PR:** ${title}`);
   }
   if (description) {
-    lines.push('', '**Descrição:**', description);
+    lines.push('', '**Descrição da PR:**', description);
   }
 
   return lines.join('\n');

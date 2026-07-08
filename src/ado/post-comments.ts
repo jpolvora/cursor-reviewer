@@ -8,6 +8,7 @@ import {
 import { normalizeFilePath, reviewDedupKey as pathLineDedupKey } from './utils.js';
 import { RESOLUTION_MARKER, REVIEW_SUMMARY_MARKER } from '../git/markers.js';
 import { testReviewSummaryAlreadyPosted } from './review-context.js';
+import { sanitizeReviewSummaryForPlatform } from './review-summary.js';
 import type {
   ActiveThreadInfo,
   AdoThreadsResponse,
@@ -286,17 +287,34 @@ export async function setPullRequestReviewSummary(
   summaryText: string,
   allThreads: AdoThreadsResponse | null,
   log: (msg: string) => void,
+  prTitle?: string,
+  workItems?: Array<{ id: number; title: string }>,
 ): Promise<boolean> {
   if (!summaryText.trim()) {
     return false;
   }
 
-  if (testReviewSummaryAlreadyPosted(allThreads, botTag, summaryText)) {
+  const sanitized = sanitizeReviewSummaryForPlatform(summaryText, {
+    pullRequestId,
+    prTitle,
+    workItemIds: workItems?.map((item) => item.id),
+    workItemTitles: workItems?.map((item) => item.title),
+  });
+
+  if (!sanitized) {
+    return false;
+  }
+
+  if (sanitized !== summaryText.trim()) {
+    log('Review summary sanitized (PR vs Work Item references).');
+  }
+
+  if (testReviewSummaryAlreadyPosted(allThreads, botTag, sanitized)) {
     log('Review summary already posted with identical content. Skipping.');
     return false;
   }
 
-  const commentContent = [botTag, REVIEW_SUMMARY_MARKER, '', summaryText.trim()].join('\n');
+  const commentContent = [botTag, REVIEW_SUMMARY_MARKER, '', sanitized].join('\n');
   const response = await client.post<{ id: number }>(`/pullRequests/${pullRequestId}/threads?api-version=7.1`, {
     comments: [
       {

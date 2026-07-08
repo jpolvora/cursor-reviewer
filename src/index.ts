@@ -176,7 +176,9 @@ async function main(): Promise<void> {
     pendingThreads: [],
   };
   let workItemContext = '';
+  let workItemSummaries: Array<{ id: number; title: string }> = [];
   let prDescriptionContext = '';
+  let prTitle = '';
 
   if (hasContext) {
     logger.section(`Coletando contexto ${isAdo ? 'Azure DevOps' : 'GitHub'}`);
@@ -188,8 +190,10 @@ async function main(): Promise<void> {
     ]);
 
     workItemContext = workItems.contextForLlm;
+    workItemSummaries = workItems.summaries ?? [];
     reviewContext = prContext;
     prDescriptionContext = prDetails.contextForLlm;
+    prTitle = prDetails.title ?? '';
   }
 
   const agentStartTime = performance.now();
@@ -369,6 +373,8 @@ async function main(): Promise<void> {
         postingPlan.reviewSummary,
         reviewContext.allThreads,
         (msg) => logger.info(msg),
+        prTitle,
+        workItemSummaries,
       );
     } else if (postingPlan.reviewSummary.trim()) {
       logger.info('Skipping final review summary (issues pendentes ou reviews novos).');

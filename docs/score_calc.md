@@ -277,7 +277,7 @@ Regras explícitas do `SYSTEM_PROMPT.md`:
 |----------|---------------|
 | Dúvida se o achado **é real** | **Silêncio** — não publicar |
 | Achado **comprovado** que passa no gate | **Publicar** — não omitir para “não poluir” |
-| PR sem issues novas | `"reviews": []` + `reviewSummary` positivo |
+| PR sem issues novas | `"reviews": []` + `reviewSummary` positivo (cita título/descrição da **PR**, não de WI/Task) |
 
 Objetivo anti-loop: **completude na mesma rodada** — listar todos os achados materiais de uma vez (score ≥ `SCORE_MIN`, default 6), não reservar para rodadas futuras.
 

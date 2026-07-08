@@ -92,7 +92,8 @@ function buildExecutionContext(config: ReviewerConfig, context: PromptContext): 
     lines.push(
       `- **Pull Request ID (Azure DevOps):** #${config.pullRequestId}`,
       `- **Fonte do ID da PR:** \`${config.pullRequestIdSource || 'desconhecida'}\``,
-      `- **Atenção:** não confunda o ID da PR com IDs de Work Items (User Story/Task) linkados à PR.`,
+      `- **Atenção (IDs):** não confunda o **ID da PR** com IDs de Work Items (User Story / Task / Bug) linkados.`,
+      `- **Atenção (textos):** título/descrição da **PR** ≠ título/descrição de **Work Item / Task**. Ao citar o que a mudança faz (comentários ou \`reviewSummary\`), use **somente** a seção \`## Pull Request\` — nunca o texto de \`## Linked Work Items\`.`,
       '',
     );
   }
@@ -153,7 +154,7 @@ function buildTwoPhaseWorkflow(context: PromptContext, scoreMin: number): string
     'Objetivo: lista enxuta de **hipóteses** ancoradas em linhas alteradas — ainda **sem** veredito final.',
     '',
     `1. ${diffStep}`,
-    '2. Incorpore descrição da PR, work items e threads ADO (contexto abaixo, se houver).',
+    '2. Incorpore o contexto abaixo, **sem misturar fontes**: descrição da **PR** (escopo do diff), Work Items/Tasks (requisitos/AC — contexto de produto) e threads ADO. Ao resumir o que a PR faz, leia o título/descrição da seção `## Pull Request`, não o de User Story/Task.',
     `3. Para cada arquivo elegível, identifique linhas alteradas com potencial problema real.${omittedNote}`,
     '4. **Descarte imediatamente:** nits, estilo, preferências, alertas teóricos sem caminho executável, código pré-existente intocado.',
     '5. Em `*.html`: ignore CSS/Tailwind/layout; candidate só segurança, permissões, bindings e validações.',
@@ -216,7 +217,8 @@ function buildVerdictAndAdoPolicy(): string[] {
     '2. **Completude:** confirme que percorreu **todos** os arquivos elegíveis e que cada achado real e comprovado foi incluído — não reserve achados para rodadas futuras (convergência em uma rodada).',
     '3. **Não duplique** threads ADO existentes (contexto abaixo), incluindo a tabela de threads **já resolvidas** — não re-levante um problema resolvido sem **nova evidência** de que voltou.',
     '4. `resolvedThreads`: somente se **verificou** via tools que o problema foi corrigido.',
-    '5. PR sem issues novas: `"reviews": []` + `reviewSummary` positivo.',
+    '5. **Resumo final (`reviewSummary`)** — preencha **somente** quando `"reviews": []` **e** não restam issues/críticas a virar thread (todas as threads do bot resolvidas / nada pendente). O texto deve referenciar a **descrição/título da PR** (seção `## Pull Request`), **nunca** título/descrição/AC de Work Item, User Story ou Task. Ex.: se a PR se chama "Ajustar validação de login" e a US linkada é "CRUD de Talhões", o resumo fala da validação de login — não do CRUD.',
+    '   - **Formato de menção (Azure DevOps):** escreva `PR 694` (**sem** `#`). No ADO, `#694` vira link de **Work Item** 694 (ícone 📖), não da Pull Request. Para WI use `Work Item 2418` / `User Story 2418` / `Task 2419` — nunca `#2418` no resumo.',
     '6. Emita **somente** o bloco JSON — sem narrativa fora do JSON.',
   ];
 }

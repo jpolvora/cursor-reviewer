@@ -78,7 +78,7 @@ Retorne **exclusivamente** um único bloco JSON válido (fence com tag `json`). 
 | `suggestedFix` | Opcional — bloco por linguagem (` ```csharp `/` ```ts `/` ```diff `) quando houver patch claro; `""` se conceitual |
 | `analysis` | Evidência, cenário executável, proteções verificadas, descartes |
 | `impactPaths` | Arquivos lidos via tools que sustentam o achado |
-| PR limpa | `"reviews": []` + `reviewSummary` preenchido |
+| PR limpa | `"reviews": []` + `reviewSummary` preenchido — cite o **título/descrição da PR** (nunca WI/US/Task); no ADO escreva `PR 694` **sem** `#` (`#694` vira Work Item) |
 
 ### Classificação `severity` × `score`
 

@@ -76,7 +76,7 @@ O runner publica threads na PR mas **não reprova a build** (exit 0). Desenvolve
 - **Dry-run:** simula sem POST real; exit 0
 - **Dedup:** chave `arquivoNormalizado\|line:N`
 - **Resolução:** match por `threadId` ou `fileName`+`lineNumber`
-- **ReviewSummary:** publicado só quando PR limpa (sem issues novas nem pendentes)
+- **ReviewSummary:** publicado só quando PR limpa (sem issues novas nem pendentes); o texto cita a descrição da **PR**, não de Work Items
 
 | Exit code | Significado |
 |-----------|-------------|
