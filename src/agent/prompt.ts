@@ -118,14 +118,29 @@ function buildExecutionContext(config: ReviewerConfig, context: PromptContext): 
   return lines;
 }
 
-function buildSeedTestSection(): string[] {
+function buildScoreMinOverrideSection(scoreMin: number): string[] {
+  if (scoreMin === 6) return [];
+  return [
+    '---',
+    '',
+    '## Limiar efetivo desta execução',
+    '',
+    `**SCORE_MIN=${scoreMin}** (carregado de config). As tabelas acima usam default 6; **prevalecem** estas regras:`,
+    `- Omita achados com score < ${scoreMin}.`,
+    `- Scores ${scoreMin}–10 com \`fix-code\` ou \`escalate\` podem virar thread.`,
+    `- Não use \`resolve-comment\` para scores ≥ ${scoreMin} que devam ser publicados.`,
+    '',
+  ];
+}
+
+function buildSeedTestSection(scoreMin: number): string[] {
   return [
     '## Modo seed test (obrigatório nesta execução)',
     '',
     '1. Leia `scripts/cursor-reviewer/SEED-ISSUES.md` e `fixtures/seed/expected-scenarios.json`.',
     '2. Reporte cada defeito intencional nos arquivos `CursorReviewerSeed*` / `cursor-reviewer-seed*`.',
     '3. Não descarte achados só por `Compile Remove` ou rota Angular ausente.',
-    '4. Cada review: `suggestedFix`, score ≥ 5, keywords do cenário.',
+    `4. Cada review: \`suggestedFix\`, score ≥ ${scoreMin}, keywords do cenário.`,
     '',
   ];
 }
@@ -236,6 +251,7 @@ export function buildAgentPrompt(config: ReviewerConfig, context: PromptContext)
 
   const sections: string[] = [
     systemPromptContent,
+    ...buildScoreMinOverrideSection(config.scoreMin),
     '',
     ...buildSkillSection(codeReviewSkillContent),
     '',
@@ -262,7 +278,7 @@ export function buildAgentPrompt(config: ReviewerConfig, context: PromptContext)
   }
 
   if (config.seedTest) {
-    sections.push(...buildSeedTestSection());
+    sections.push(...buildSeedTestSection(config.scoreMin));
   }
 
   sections.push(...buildTwoPhaseWorkflow(context, config.scoreMin), ...buildVerdictAndAdoPolicy());

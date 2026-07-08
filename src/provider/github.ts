@@ -420,6 +420,7 @@ These issues were reported in a previous round and already resolved/closed. Do *
       prTitle,
       workItemIds: workItems?.map((item) => item.id),
       workItemTitles: workItems?.map((item) => item.title),
+      platform: 'github',
     });
     if (!sanitized) return false;
 

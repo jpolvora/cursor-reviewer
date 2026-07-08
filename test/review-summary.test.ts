@@ -58,4 +58,17 @@ describe('sanitizeReviewSummaryForPlatform', () => {
   it('retorna vazio para texto em branco', () => {
     assert.equal(sanitizeReviewSummaryForPlatform('   ', { pullRequestId: 1 }), '');
   });
+
+  it('preserva #N no GitHub (autolinks válidos)', () => {
+    const input = 'Relacionado à issue #42. Ver PR #18.';
+    const out = sanitizeReviewSummaryForPlatform(input, {
+      pullRequestId: 18,
+      platform: 'github',
+    });
+
+    assert.equal(out, input);
+    assert.ok(out.includes('#42'));
+    assert.ok(out.includes('#18'));
+    assert.ok(!out.includes('Work Item'));
+  });
 });

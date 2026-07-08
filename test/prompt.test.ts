@@ -32,6 +32,7 @@ function minimalConfig(skillPath: string, systemPromptPath: string): ReviewerCon
     stack: 'ABP/Angular',
     stackPromptPath: null,
     stackSource: 'fallback',
+    scoreMin: 6,
   };
 }
 
@@ -157,5 +158,36 @@ describe('buildAgentPrompt', () => {
     assert.ok(prompt.includes('- **Stack:** `PHP/Laravel`'));
     assert.ok(prompt.includes('# Recomendações Específicas da Stack (PHP/Laravel)'));
     assert.ok(prompt.includes('Problema de Query N+1'));
+  });
+
+  it('injeta override de SCORE_MIN quando diferente do default 6', () => {
+    const runnerRoot = process.cwd().includes('cursor-reviewer')
+      ? process.cwd()
+      : `${process.cwd()}/scripts/cursor-reviewer`;
+
+    const config = {
+      ...minimalConfig(`${runnerRoot}/skills/CODE_REVIEW.md`, `${runnerRoot}/skills/SYSTEM_PROMPT.md`),
+      scoreMin: 4,
+    };
+
+    const prompt = buildAgentPrompt(config, promptContext);
+
+    assert.ok(prompt.includes('## Limiar efetivo desta execução'));
+    assert.ok(prompt.includes('**SCORE_MIN=4**'));
+    assert.ok(prompt.includes('Omita achados com score < 4'));
+    assert.ok(prompt.includes('score < 4 → omita'));
+  });
+
+  it('não injeta override de SCORE_MIN quando default é 6', () => {
+    const runnerRoot = process.cwd().includes('cursor-reviewer')
+      ? process.cwd()
+      : `${process.cwd()}/scripts/cursor-reviewer`;
+
+    const prompt = buildAgentPrompt(
+      minimalConfig(`${runnerRoot}/skills/CODE_REVIEW.md`, `${runnerRoot}/skills/SYSTEM_PROMPT.md`),
+      promptContext,
+    );
+
+    assert.ok(!prompt.includes('## Limiar efetivo desta execução'));
   });
 });

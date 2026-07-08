@@ -6,6 +6,8 @@ export interface ReviewSummarySanitizeOptions {
   workItemIds?: number[];
   /** Títulos de WIs — se o agente colar o título da US/Task no lugar do da PR, corrige. */
   workItemTitles?: string[];
+  /** ADO sanitiza `#N`; GitHub preserva autolinks de issues/PRs. */
+  platform?: 'ado' | 'github';
 }
 
 function escapeRegExp(value: string): string {
@@ -24,6 +26,10 @@ export function sanitizeReviewSummaryForPlatform(
   const trimmed = summaryText.trim();
   if (!trimmed) {
     return '';
+  }
+
+  if (options.platform === 'github') {
+    return trimmed;
   }
 
   const prId = options.pullRequestId;
