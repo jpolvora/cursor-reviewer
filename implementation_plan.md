@@ -1,25 +1,15 @@
-# Implementation Plan — PR #18 Review Threads
+# Implementation Plan — PR #18 Review Threads (round 3)
 
-## Thread #1 — `prompt.ts:268` (SCORE_MIN mismatch)
+## Threads #1 & #2 — `review-summary.ts:44/52` ($ in prTitle corrupts replace)
 
-**Root cause:** `SYSTEM_PROMPT.md` hardcodes score tables for default `SCORE_MIN=6`. Only Phase 2.4 injects `config.scoreMin`, so agents miscalibrate when `SCORE_MIN≠6`.
-
-**Fix:**
-- Add `buildScoreMinOverrideSection(scoreMin)` injected right after the static system prompt when `scoreMin !== 6`.
-- Parameterize `buildSeedTestSection(scoreMin)` instead of hardcoded `score ≥ 5`.
-
-**Tests:** Assert override section appears for `scoreMin=4` and is absent for default `6`.
-
-## Threads #2 & #3 — GitHub reviewSummary sanitization
-
-**Root cause:** `GithubProvider.setPullRequestReviewSummary` calls `sanitizeReviewSummaryForPlatform`, which neutralizes all `#N` as ADO Work Items — breaking valid GitHub issue/PR autolinks.
+**Root cause:** `String.replace` interprets `$1`, `$&`, `$$` in replacement strings. When `prTitle` from the API contains `$` (e.g. monetary values), interpolated replacement strings corrupt the published `reviewSummary`.
 
 **Fix:**
-- Add `platform: 'ado' | 'github'` to `ReviewSummarySanitizeOptions` (default `'ado'`).
-- Early-return trimmed text for `platform === 'github'`.
-- Pass `platform: 'github'` from `GithubProvider`.
+- Use callback replacements in `correctMisplacedWorkItemTitles` so `prTitle` is literal text, not replace metacharacters.
 
-**Tests:** Assert GitHub platform preserves `#42` and does not rewrite to "Work Item".
+**Tests:**
+- ADO: WI title correction and header rewrite with `$` in prTitle
+- GitHub: WI title correction with `$` in prTitle
 
 ## Validation
 

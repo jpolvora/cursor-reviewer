@@ -106,4 +106,45 @@ describe('sanitizeReviewSummaryForPlatform', () => {
 
     assert.equal(out, 'Ver Work Item 999 no board.');
   });
+
+  it('preserva $ no título da PR ao corrigir WI colado (ADO)', () => {
+    const prTitle = 'Corrigir estorno de $1000';
+    const out = sanitizeReviewSummaryForPlatform(
+      'Revisão somente leitura da PR 694 Correções do Agente. Nenhum defeito.',
+      {
+        pullRequestId: 694,
+        prTitle,
+        workItemTitles: ['Correções do Agente'],
+      },
+    );
+
+    assert.ok(out.includes(`PR 694 ("${prTitle}")`));
+    assert.ok(!out.includes('Correções do Agente'));
+  });
+
+  it('preserva $ no título da PR ao reescrever cabeçalho (ADO)', () => {
+    const prTitle = 'Ajuste de $500 no módulo';
+    const out = sanitizeReviewSummaryForPlatform('Revisão somente leitura da PR 100. Tudo ok.', {
+      pullRequestId: 100,
+      prTitle,
+    });
+
+    assert.equal(out, `Revisão somente leitura da PR 100 ("${prTitle}"). Tudo ok.`);
+  });
+
+  it('preserva $ no título da PR no GitHub', () => {
+    const prTitle = 'Fix billing $99';
+    const out = sanitizeReviewSummaryForPlatform(
+      'Revisão somente leitura da #18 Wrong WI title. Ok.',
+      {
+        pullRequestId: 18,
+        prTitle,
+        workItemTitles: ['Wrong WI title'],
+        platform: 'github',
+      },
+    );
+
+    assert.ok(out.includes(`#18 ("${prTitle}")`));
+    assert.ok(!out.includes('Wrong WI title'));
+  });
 });

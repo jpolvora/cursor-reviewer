@@ -41,7 +41,7 @@ function correctMisplacedWorkItemTitles(
       'i',
     );
     if (afterPrTitle.test(result)) {
-      result = result.replace(afterPrTitle, `$1 ("${prTitle}")`);
+      result = result.replace(afterPrTitle, (_match, capturedPrRef) => `${capturedPrRef} ("${prTitle}")`);
     }
   }
 
@@ -49,7 +49,7 @@ function correctMisplacedWorkItemTitles(
   if (startsWithPrRef.test(result) && !result.includes(prTitle)) {
     result = result.replace(
       startsWithPrRef,
-      `Revisão somente leitura da ${prRef} ("${prTitle}")`,
+      () => `Revisão somente leitura da ${prRef} ("${prTitle}")`,
     );
   }
 
