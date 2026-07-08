@@ -299,6 +299,7 @@ export async function setPullRequestReviewSummary(
     prTitle,
     workItemIds: workItems?.map((item) => item.id),
     workItemTitles: workItems?.map((item) => item.title),
+    platform: 'ado',
   });
 
   if (!sanitized) {

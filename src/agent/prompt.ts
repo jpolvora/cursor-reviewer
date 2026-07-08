@@ -88,9 +88,11 @@ function buildExecutionContext(config: ReviewerConfig, context: PromptContext): 
     '',
   );
 
+  const platformLabel = config.provider === 'github' ? 'GitHub' : 'Azure DevOps';
+
   if (config.pullRequestId > 0) {
     lines.push(
-      `- **Pull Request ID (Azure DevOps):** #${config.pullRequestId}`,
+      `- **Pull Request ID (${platformLabel}):** #${config.pullRequestId}`,
       `- **Fonte do ID da PR:** \`${config.pullRequestIdSource || 'desconhecida'}\``,
       `- **Atenção (IDs):** não confunda o **ID da PR** com IDs de Work Items (User Story / Task / Bug) linkados.`,
       `- **Atenção (textos):** título/descrição da **PR** ≠ título/descrição de **Work Item / Task**. Ao citar o que a mudança faz (comentários ou \`reviewSummary\`), use **somente** a seção \`## Pull Request\` — nunca o texto de \`## Linked Work Items\`.`,
@@ -223,17 +225,25 @@ function buildTwoPhaseWorkflow(context: PromptContext, scoreMin: number): string
   ];
 }
 
-function buildVerdictAndAdoPolicy(): string[] {
+function buildReviewSummaryLinkPolicy(provider: ReviewerConfig['provider']): string {
+  if (provider === 'github') {
+    return '   - **Formato de menção (GitHub):** use `#694` para linkar a PR ou issues no repositório. Evite `PR 694` sem hash — não gera autolink clicável.';
+  }
+  return '   - **Formato de menção (Azure DevOps):** escreva `PR 694` (**sem** `#`). No ADO, `#694` vira link de **Work Item** 694 (ícone 📖), não da Pull Request. Para WI use `Work Item 2418` / `User Story 2418` / `Task 2419` — nunca `#2418` no resumo.';
+}
+
+function buildVerdictAndPlatformPolicy(provider: ReviewerConfig['provider']): string[] {
+  const threadLabel = provider === 'github' ? 'threads existentes' : 'threads ADO existentes';
   return [
     '',
     '### Veredito final',
     '',
     '1. Releia cada review contra o filtro de publicação do System Prompt.',
     '2. **Completude:** confirme que percorreu **todos** os arquivos elegíveis e que cada achado real e comprovado foi incluído — não reserve achados para rodadas futuras (convergência em uma rodada).',
-    '3. **Não duplique** threads ADO existentes (contexto abaixo), incluindo a tabela de threads **já resolvidas** — não re-levante um problema resolvido sem **nova evidência** de que voltou.',
+    `3. **Não duplique** ${threadLabel} (contexto abaixo), incluindo a tabela de threads **já resolvidas** — não re-levante um problema resolvido sem **nova evidência** de que voltou.`,
     '4. `resolvedThreads`: somente se **verificou** via tools que o problema foi corrigido.',
     '5. **Resumo final (`reviewSummary`)** — preencha **somente** quando `"reviews": []` **e** não restam issues/críticas a virar thread (todas as threads do bot resolvidas / nada pendente). O texto deve referenciar a **descrição/título da PR** (seção `## Pull Request`), **nunca** título/descrição/AC de Work Item, User Story ou Task. Ex.: se a PR se chama "Ajustar validação de login" e a US linkada é "CRUD de Talhões", o resumo fala da validação de login — não do CRUD.',
-    '   - **Formato de menção (Azure DevOps):** escreva `PR 694` (**sem** `#`). No ADO, `#694` vira link de **Work Item** 694 (ícone 📖), não da Pull Request. Para WI use `Work Item 2418` / `User Story 2418` / `Task 2419` — nunca `#2418` no resumo.',
+    buildReviewSummaryLinkPolicy(provider),
     '6. Emita **somente** o bloco JSON — sem narrativa fora do JSON.',
   ];
 }
@@ -281,7 +291,7 @@ export function buildAgentPrompt(config: ReviewerConfig, context: PromptContext)
     sections.push(...buildSeedTestSection(config.scoreMin));
   }
 
-  sections.push(...buildTwoPhaseWorkflow(context, config.scoreMin), ...buildVerdictAndAdoPolicy());
+  sections.push(...buildTwoPhaseWorkflow(context, config.scoreMin), ...buildVerdictAndPlatformPolicy(config.provider));
 
   if (context.workItemContext) {
     sections.push('', context.workItemContext);

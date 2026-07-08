@@ -64,6 +64,8 @@ export class GithubProvider implements PlatformProvider {
         `> **Pull Request ID:** #${this.config.pullRequestId} — use **somente este número** ao referenciar a PR.`,
         '>',
         '> **Fonte canônica do escopo da PR:** o **Título** e a **Descrição** abaixo descrevem **esta Pull Request**. Em `reviewSummary` e comentários sobre o que a PR faz, cite **estes** campos — não confunda com títulos/descrições de issues ou work items linkados.',
+        '>',
+        `> **Menção no texto publicado:** use \`#${this.config.pullRequestId}\` para linkar esta PR. No GitHub, \`#N\` gera autolink para issues/PRs no repositório.`,
         '',
         `**Título da PR:** ${title}`,
         body ? `\n**Descrição da PR:**\n${body}` : '',
@@ -425,7 +427,7 @@ These issues were reported in a previous round and already resolved/closed. Do *
     if (!sanitized) return false;
 
     if (sanitized !== summaryText.trim()) {
-      log('Review summary sanitized (PR vs Work Item references).');
+      log('Review summary sanitized for GitHub (PR reference normalization).');
     }
 
     const existingComments = allThreads?.value ?? [];

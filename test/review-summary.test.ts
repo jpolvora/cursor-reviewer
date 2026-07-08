@@ -59,8 +59,8 @@ describe('sanitizeReviewSummaryForPlatform', () => {
     assert.equal(sanitizeReviewSummaryForPlatform('   ', { pullRequestId: 1 }), '');
   });
 
-  it('preserva #N no GitHub (autolinks válidos)', () => {
-    const input = 'Relacionado à issue #42. Ver PR #18.';
+  it('preserva #N de issues no GitHub (autolinks válidos)', () => {
+    const input = 'Relacionado à issue #42. Ver também #999.';
     const out = sanitizeReviewSummaryForPlatform(input, {
       pullRequestId: 18,
       platform: 'github',
@@ -68,7 +68,42 @@ describe('sanitizeReviewSummaryForPlatform', () => {
 
     assert.equal(out, input);
     assert.ok(out.includes('#42'));
-    assert.ok(out.includes('#18'));
+    assert.ok(out.includes('#999'));
     assert.ok(!out.includes('Work Item'));
+  });
+
+  it('normaliza PR N para #N no GitHub (autolink da PR)', () => {
+    const out = sanitizeReviewSummaryForPlatform('Revisão somente leitura da PR 18. Ver PR #18.', {
+      pullRequestId: 18,
+      platform: 'github',
+    });
+
+    assert.ok(out.includes('#18'));
+    assert.ok(!/\bPR\s+18\b/.test(out));
+    assert.ok(!out.includes('Work Item'));
+  });
+
+  it('corrige título de WI colado no GitHub mantendo #N', () => {
+    const out = sanitizeReviewSummaryForPlatform(
+      'Revisão somente leitura da #694 Correções do Agente. Nenhum defeito.',
+      {
+        pullRequestId: 694,
+        prTitle: 'Estorno de baixa',
+        workItemTitles: ['Correções do Agente'],
+        platform: 'github',
+      },
+    );
+
+    assert.ok(out.includes('#694 ("Estorno de baixa")'));
+    assert.ok(!out.includes('Correções do Agente'));
+  });
+
+  it('usa sanitização ADO por padrão quando platform omitido', () => {
+    const out = sanitizeReviewSummaryForPlatform('Ver #999 no board.', {
+      pullRequestId: 10,
+      prTitle: 'X',
+    });
+
+    assert.equal(out, 'Ver Work Item 999 no board.');
   });
 });

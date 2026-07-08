@@ -33,6 +33,7 @@ function minimalConfig(skillPath: string, systemPromptPath: string): ReviewerCon
     stackPromptPath: null,
     stackSource: 'fallback',
     scoreMin: 6,
+    provider: 'azuredevops' as const,
   };
 }
 
@@ -189,5 +190,24 @@ describe('buildAgentPrompt', () => {
     );
 
     assert.ok(!prompt.includes('## Limiar efetivo desta execução'));
+  });
+
+  it('inclui política de links do GitHub quando provider é github', () => {
+    const runnerRoot = process.cwd().includes('cursor-reviewer')
+      ? process.cwd()
+      : `${process.cwd()}/scripts/cursor-reviewer`;
+
+    const config = {
+      ...minimalConfig(`${runnerRoot}/skills/CODE_REVIEW.md`, `${runnerRoot}/skills/SYSTEM_PROMPT.md`),
+      provider: 'github' as const,
+      pullRequestId: 18,
+    };
+
+    const prompt = buildAgentPrompt(config, promptContext);
+
+    assert.ok(prompt.includes('**Pull Request ID (GitHub):** #18'));
+    assert.ok(prompt.includes('**Formato de menção (GitHub):**'));
+    assert.ok(prompt.includes('use `#694` para linkar'));
+    assert.ok(!prompt.includes('**Formato de menção (Azure DevOps):**'));
   });
 });
