@@ -3,6 +3,7 @@ import type { ReviewerConfig } from '../config.js';
 import type { Logger } from '../logger.js';
 import { formatCommentForPosting } from '../ado/format-thread.js';
 import { getReviewSummaryFromComment } from '../ado/review-context.js';
+import { sanitizeReviewSummaryForPlatform } from '../ado/review-summary.js';
 import {
   filterValidResolvedItems,
   isActiveOrPendingStatus,
@@ -61,9 +62,13 @@ export class GithubProvider implements PlatformProvider {
         '## Pull Request (GitHub)',
         '',
         `> **Pull Request ID:** #${this.config.pullRequestId} — use **somente este número** ao referenciar a PR.`,
+        '>',
+        '> **Fonte canônica do escopo da PR:** o **Título** e a **Descrição** abaixo descrevem **esta Pull Request**. Em `reviewSummary` e comentários sobre o que a PR faz, cite **estes** campos — não confunda com títulos/descrições de issues ou work items linkados.',
+        '>',
+        `> **Menção no texto publicado:** use \`#${this.config.pullRequestId}\` para linkar esta PR. No GitHub, \`#N\` gera autolink para issues/PRs no repositório.`,
         '',
-        `**Título:** ${title}`,
-        body ? `\n**Descrição:**\n${body}` : '',
+        `**Título da PR:** ${title}`,
+        body ? `\n**Descrição da PR:**\n${body}` : '',
       ].join('\n');
 
       log?.(`Iniciando revisão somente leitura da PR #${this.config.pullRequestId} sobre ${title}.`);
@@ -346,7 +351,9 @@ These issues were reported in a previous round and already resolved/closed. Do *
   ): Promise<PostedReviewThread[]> {
     const posted: PostedReviewThread[] = [];
     const reviewsObject = JSON.parse(reviewsJson) as { reviews: CodeReviewItem[] };
-    const reviews = (reviewsObject.reviews ?? []).filter(isPublishableReview);
+    const reviews = (reviewsObject.reviews ?? []).filter((review) =>
+      isPublishableReview(review, this.config.scoreMin),
+    );
     const newReviews = reviews.filter((review) => !isDuplicateReview(review, existingKeys));
 
     if (newReviews.length === 0) {
@@ -405,11 +412,26 @@ These issues were reported in a previous round and already resolved/closed. Do *
     summaryText: string,
     allThreads: any,
     log: (msg: string) => void,
+    prTitle?: string,
+    workItems?: Array<{ id: number; title: string }>,
   ): Promise<boolean> {
     if (!summaryText.trim()) return false;
 
+    const sanitized = sanitizeReviewSummaryForPlatform(summaryText, {
+      pullRequestId: this.config.pullRequestId,
+      prTitle,
+      workItemIds: workItems?.map((item) => item.id),
+      workItemTitles: workItems?.map((item) => item.title),
+      platform: 'github',
+    });
+    if (!sanitized) return false;
+
+    if (sanitized !== summaryText.trim()) {
+      log('Review summary sanitized for GitHub (PR reference normalization).');
+    }
+
     const existingComments = allThreads?.value ?? [];
-    const normalizedSummary = summaryText.replace(/\s+/g, ' ').trim();
+    const normalizedSummary = sanitized.replace(/\s+/g, ' ').trim();
     for (const c of existingComments) {
       const commentContent = c.comments?.[0]?.content ?? '';
       if (commentContent.includes(botTag) && commentContent.includes(REVIEW_SUMMARY_MARKER)) {
@@ -423,7 +445,7 @@ These issues were reported in a previous round and already resolved/closed. Do *
       }
     }
 
-    const commentBody = [botTag, REVIEW_SUMMARY_MARKER, '', summaryText.trim()].join('\n');
+    const commentBody = [botTag, REVIEW_SUMMARY_MARKER, '', sanitized].join('\n');
     try {
       const path = `/repos/${this.config.organization}/${this.config.repositoryName}/issues/${this.config.pullRequestId}/comments`;
       await this.client.restPost(path, { body: commentBody });

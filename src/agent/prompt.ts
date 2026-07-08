@@ -88,11 +88,14 @@ function buildExecutionContext(config: ReviewerConfig, context: PromptContext): 
     '',
   );
 
+  const platformLabel = config.provider === 'github' ? 'GitHub' : 'Azure DevOps';
+
   if (config.pullRequestId > 0) {
     lines.push(
-      `- **Pull Request ID (Azure DevOps):** #${config.pullRequestId}`,
+      `- **Pull Request ID (${platformLabel}):** #${config.pullRequestId}`,
       `- **Fonte do ID da PR:** \`${config.pullRequestIdSource || 'desconhecida'}\``,
-      `- **Atenção:** não confunda o ID da PR com IDs de Work Items (User Story/Task) linkados à PR.`,
+      `- **Atenção (IDs):** não confunda o **ID da PR** com IDs de Work Items (User Story / Task / Bug) linkados.`,
+      `- **Atenção (textos):** título/descrição da **PR** ≠ título/descrição de **Work Item / Task**. Ao citar o que a mudança faz (comentários ou \`reviewSummary\`), use **somente** a seção \`## Pull Request\` — nunca o texto de \`## Linked Work Items\`.`,
       '',
     );
   }
@@ -117,19 +120,34 @@ function buildExecutionContext(config: ReviewerConfig, context: PromptContext): 
   return lines;
 }
 
-function buildSeedTestSection(): string[] {
+function buildScoreMinOverrideSection(scoreMin: number): string[] {
+  if (scoreMin === 6) return [];
+  return [
+    '---',
+    '',
+    '## Limiar efetivo desta execução',
+    '',
+    `**SCORE_MIN=${scoreMin}** (carregado de config). As tabelas acima usam default 6; **prevalecem** estas regras:`,
+    `- Omita achados com score < ${scoreMin}.`,
+    `- Scores ${scoreMin}–10 com \`fix-code\` ou \`escalate\` podem virar thread.`,
+    `- Não use \`resolve-comment\` para scores ≥ ${scoreMin} que devam ser publicados.`,
+    '',
+  ];
+}
+
+function buildSeedTestSection(scoreMin: number): string[] {
   return [
     '## Modo seed test (obrigatório nesta execução)',
     '',
     '1. Leia `scripts/cursor-reviewer/SEED-ISSUES.md` e `fixtures/seed/expected-scenarios.json`.',
     '2. Reporte cada defeito intencional nos arquivos `CursorReviewerSeed*` / `cursor-reviewer-seed*`.',
     '3. Não descarte achados só por `Compile Remove` ou rota Angular ausente.',
-    '4. Cada review: `suggestedFix`, score ≥ 5, keywords do cenário.',
+    `4. Cada review: \`suggestedFix\`, score ≥ ${scoreMin}, keywords do cenário.`,
     '',
   ];
 }
 
-function buildTwoPhaseWorkflow(context: PromptContext): string[] {
+function buildTwoPhaseWorkflow(context: PromptContext, scoreMin: number): string[] {
   const diffRange = context.gitContext.diffRange;
   const hasEmbeddedDiff = context.diffSection.mode !== 'empty';
   const diffStep = hasEmbeddedDiff
@@ -153,7 +171,7 @@ function buildTwoPhaseWorkflow(context: PromptContext): string[] {
     'Objetivo: lista enxuta de **hipóteses** ancoradas em linhas alteradas — ainda **sem** veredito final.',
     '',
     `1. ${diffStep}`,
-    '2. Incorpore descrição da PR, work items e threads ADO (contexto abaixo, se houver).',
+    '2. Incorpore o contexto abaixo, **sem misturar fontes**: descrição da **PR** (escopo do diff), Work Items/Tasks (requisitos/AC — contexto de produto) e threads ADO. Ao resumir o que a PR faz, leia o título/descrição da seção `## Pull Request`, não o de User Story/Task.',
     `3. Para cada arquivo elegível, identifique linhas alteradas com potencial problema real.${omittedNote}`,
     '4. **Descarte imediatamente:** nits, estilo, preferências, alertas teóricos sem caminho executável, código pré-existente intocado.',
     '5. Em `*.html`: ignore CSS/Tailwind/layout; candidate só segurança, permissões, bindings e validações.',
@@ -194,7 +212,7 @@ function buildTwoPhaseWorkflow(context: PromptContext): string[] {
     '#### 2.4 — Classificar e filtrar',
     '',
     '1. Atribua `severity` e `score` conforme tabelas do **System Prompt**.',
-    '2. Aplique o filtro de publicação: score ≤ 5 → omita; só `fix-code` ou `escalate`.',
+    `2. Aplique o filtro de publicação: score < ${scoreMin} → omita; só \`fix-code\` ou \`escalate\`.`,
     '3. Combine múltiplos achados na **mesma linha** em um único review.',
     '4. Preencha `comment` (amigável, sem código); `suggestedFix` só se houver patch cirúrgico claro (senão `""`).',
     '',
@@ -207,16 +225,25 @@ function buildTwoPhaseWorkflow(context: PromptContext): string[] {
   ];
 }
 
-function buildVerdictAndAdoPolicy(): string[] {
+function buildReviewSummaryLinkPolicy(provider: ReviewerConfig['provider']): string {
+  if (provider === 'github') {
+    return '   - **Formato de menção (GitHub):** use `#694` para linkar a PR ou issues no repositório. Evite `PR 694` sem hash — não gera autolink clicável.';
+  }
+  return '   - **Formato de menção (Azure DevOps):** escreva `PR 694` (**sem** `#`). No ADO, `#694` vira link de **Work Item** 694 (ícone 📖), não da Pull Request. Para WI use `Work Item 2418` / `User Story 2418` / `Task 2419` — nunca `#2418` no resumo.';
+}
+
+function buildVerdictAndPlatformPolicy(provider: ReviewerConfig['provider']): string[] {
+  const threadLabel = provider === 'github' ? 'threads existentes' : 'threads ADO existentes';
   return [
     '',
     '### Veredito final',
     '',
     '1. Releia cada review contra o filtro de publicação do System Prompt.',
     '2. **Completude:** confirme que percorreu **todos** os arquivos elegíveis e que cada achado real e comprovado foi incluído — não reserve achados para rodadas futuras (convergência em uma rodada).',
-    '3. **Não duplique** threads ADO existentes (contexto abaixo), incluindo a tabela de threads **já resolvidas** — não re-levante um problema resolvido sem **nova evidência** de que voltou.',
+    `3. **Não duplique** ${threadLabel} (contexto abaixo), incluindo a tabela de threads **já resolvidas** — não re-levante um problema resolvido sem **nova evidência** de que voltou.`,
     '4. `resolvedThreads`: somente se **verificou** via tools que o problema foi corrigido.',
-    '5. PR sem issues novas: `"reviews": []` + `reviewSummary` positivo.',
+    '5. **Resumo final (`reviewSummary`)** — preencha **somente** quando `"reviews": []` **e** não restam issues/críticas a virar thread (todas as threads do bot resolvidas / nada pendente). O texto deve referenciar a **descrição/título da PR** (seção `## Pull Request`), **nunca** título/descrição/AC de Work Item, User Story ou Task. Ex.: se a PR se chama "Ajustar validação de login" e a US linkada é "CRUD de Talhões", o resumo fala da validação de login — não do CRUD.',
+    buildReviewSummaryLinkPolicy(provider),
     '6. Emita **somente** o bloco JSON — sem narrativa fora do JSON.',
   ];
 }
@@ -234,6 +261,7 @@ export function buildAgentPrompt(config: ReviewerConfig, context: PromptContext)
 
   const sections: string[] = [
     systemPromptContent,
+    ...buildScoreMinOverrideSection(config.scoreMin),
     '',
     ...buildSkillSection(codeReviewSkillContent),
     '',
@@ -260,10 +288,10 @@ export function buildAgentPrompt(config: ReviewerConfig, context: PromptContext)
   }
 
   if (config.seedTest) {
-    sections.push(...buildSeedTestSection());
+    sections.push(...buildSeedTestSection(config.scoreMin));
   }
 
-  sections.push(...buildTwoPhaseWorkflow(context), ...buildVerdictAndAdoPolicy());
+  sections.push(...buildTwoPhaseWorkflow(context, config.scoreMin), ...buildVerdictAndPlatformPolicy(config.provider));
 
   if (context.workItemContext) {
     sections.push('', context.workItemContext);

@@ -52,6 +52,8 @@ export interface PlatformProvider {
     summaryText: string,
     allThreads: any,
     log: (msg: string) => void,
+    prTitle?: string,
+    workItems?: Array<{ id: number; title: string }>,
   ): Promise<boolean>;
 
   parseRoundStateFromThreads(allThreads: any, botTag: string): RoundStateLocation;

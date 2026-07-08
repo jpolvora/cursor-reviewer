@@ -27,7 +27,12 @@ describe('buildPullRequestContextForLlm', () => {
 
     assert.ok(context.includes('**Pull Request ID:** #789'));
     assert.ok(context.includes('IDs numéricos de Work Items'));
-    assert.ok(context.includes('**Título:** Equipamentos Florestais'));
+    assert.ok(context.includes('Fonte canônica do escopo da PR'));
+    assert.ok(context.includes('Menção no texto publicado'));
+    assert.ok(context.includes('`PR 789`'));
+    assert.ok(context.includes('**Título da PR:** Equipamentos Florestais'));
+    assert.ok(context.includes('**Descrição da PR:**'));
     assert.ok(context.includes('Descrição curta'));
+    assert.ok(context.includes('não') && context.includes('Work Items'));
   });
 });

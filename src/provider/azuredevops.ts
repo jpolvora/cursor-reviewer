@@ -78,6 +78,7 @@ export class AdoProvider implements PlatformProvider {
       reviewsJson,
       existingKeys,
       log,
+      this.config.scoreMin,
     );
   }
 
@@ -86,6 +87,8 @@ export class AdoProvider implements PlatformProvider {
     summaryText: string,
     allThreads: any,
     log: (msg: string) => void,
+    prTitle?: string,
+    workItems?: Array<{ id: number; title: string }>,
   ): Promise<boolean> {
     return setPullRequestReviewSummary(
       this.ado,
@@ -94,6 +97,8 @@ export class AdoProvider implements PlatformProvider {
       summaryText,
       allThreads,
       log,
+      prTitle,
+      workItems,
     );
   }
 

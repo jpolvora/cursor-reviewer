@@ -11,6 +11,7 @@
 - [Arquivos elegíveis](#arquivos-elegíveis)
 - [Resumo do review](#resumo-do-review)
 - [Configuração (.env)](#configuração-env)
+- [SCORE_MIN (limiar de threads)](#score_min-limiar-de-threads)
 - [Alterar o modelo LLM](#alterar-o-modelo-llm)
 - [Azure Pipelines](#azure-pipelines)
 - [Como rodar localmente](#como-rodar-localmente)
@@ -75,7 +76,7 @@ O runner publica threads na PR mas **não reprova a build** (exit 0). Desenvolve
 - **Dry-run:** simula sem POST real; exit 0
 - **Dedup:** chave `arquivoNormalizado\|line:N`
 - **Resolução:** match por `threadId` ou `fileName`+`lineNumber`
-- **ReviewSummary:** publicado só quando PR limpa (sem issues novas nem pendentes)
+- **ReviewSummary:** publicado só quando PR limpa (sem issues novas nem pendentes); o texto cita a descrição da **PR**, não de Work Items
 
 | Exit code | Significado |
 |-----------|-------------|
@@ -106,8 +107,21 @@ cp .env.example .env
 | `CURSOR_REVIEWER_ADO_REPO` | Não | Repositório ADO |
 | `CURSOR_REVIEWER_PR_ID` | Não | ID da PR |
 | `CURSOR_REVIEWER_REPO_ROOT` | Não | Raiz do repositório alvo |
+| `SCORE_MIN` | Não | Score mínimo (inclusive) para publicar thread (default: `6`). **Opcional** — omitir = comportamento histórico |
 
 Carregamento: `tsx --env-file-if-exists=.env`.
+
+### `SCORE_MIN` (limiar de threads)
+
+Controla quais issues do agente viram threads na PR (`score >= SCORE_MIN`). **Opt-in:** pipelines e scripts que não definem `SCORE_MIN` nem `--score-min` continuam com limiar **6**.
+
+```bash
+# .env — publicar também scores 4 e 5
+SCORE_MIN=4
+
+# pontual na CLI (precedência sobre env)
+npm run review -- --dry-run --score-min 4
+```
 
 ---
 
@@ -144,6 +158,7 @@ cp cursor-reviewer/azure-pipelines-cursor-code-review.yml ./
 | `REVIEWER_DIR` | Path do projeto (default: `scripts/cursor-reviewer`) |
 | `CURSOR_REVIEWER_TARGET_BRANCH` | Branch target |
 | `CURSOR_REVIEWER_MODEL` | Modelo LLM |
+| `SCORE_MIN` | *(opcional)* Limiar de publicação; omitir = `6` |
 
 ### Pré-requisitos ADO
 
@@ -284,7 +299,7 @@ Parser: último bloco ` ```json ` válido → fallback para último `{...}` com 
 }
 ```
 
-Campos obrigatórios: `fileName`, `lineNumber`, `severity`, `comment`, `score`, `developerAction`, `analysis`, `impactPaths`. `suggestedFix` opcional (fence por linguagem, nunca ` ```suggestion `). Score ≤ 5 → descartado.
+Campos obrigatórios: `fileName`, `lineNumber`, `severity`, `comment`, `score`, `developerAction`, `analysis`, `impactPaths`. `suggestedFix` opcional (fence por linguagem, nunca ` ```suggestion `). Score &lt; `SCORE_MIN` (default 6) → descartado pelo gate TypeScript.
 
 ---
 
@@ -341,6 +356,7 @@ Pipeline: SUCESSO (exit 0)
 | `--bot-tag TAG` | Tag do bot |
 | `--model ID` | Modelo Cursor |
 | `--repo-root PATH` | Raiz do repositório alvo |
+| `--score-min N` | Score mínimo para thread (default: `6`; opt-in) |
 | `--help` / `-h` | Ajuda |
 
 ---
@@ -350,6 +366,7 @@ Pipeline: SUCESSO (exit 0)
 | Variável | Origem |
 |----------|--------|
 | `CURSOR_REVIEWER_MODEL` | Variable group / pipeline var |
+| `SCORE_MIN` | *(opcional)* Variable group / pipeline var; omitir = default `6` |
 | `CURSOR_REVIEWER_TARGET_BRANCH` | Variable group / pipeline var |
 | `SYSTEM_PULLREQUEST_SOURCEBRANCH` | Pipeline ADO |
 | `SYSTEM_PULLREQUEST_TARGETBRANCH` | Pipeline ADO |

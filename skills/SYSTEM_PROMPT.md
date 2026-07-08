@@ -71,14 +71,14 @@ Retorne **exclusivamente** um único bloco JSON válido (fence com tag `json`). 
 
 | Critério | Regra |
 |----------|--------|
-| `score` | **6–10** entram em `reviews`; **≤ 5 omita** (não vira thread) |
+| `score` | **SCORE_MIN–10** entram em `reviews` (default **6–10**); abaixo do mínimo → omita (não vira thread). O runner injeta o limiar efetivo em `prompt.ts`; omitir `SCORE_MIN` mantém **6**. |
 | `developerAction` | `fix-code` ou `escalate` — nunca `resolve-comment` em reviews novos |
 | `lineNumber` | Inteiro **> 0**, na linha alterada mais responsável |
 | `comment` | Objetivo; sem prefixos de severidade nem blocos de código |
 | `suggestedFix` | Opcional — bloco por linguagem (` ```csharp `/` ```ts `/` ```diff `) quando houver patch claro; `""` se conceitual |
 | `analysis` | Evidência, cenário executável, proteções verificadas, descartes |
 | `impactPaths` | Arquivos lidos via tools que sustentam o achado |
-| PR limpa | `"reviews": []` + `reviewSummary` preenchido |
+| PR limpa | `"reviews": []` + `reviewSummary` preenchido — cite o **título/descrição da PR** (nunca WI/US/Task); no ADO escreva `PR 694` **sem** `#` (`#694` vira Work Item) |
 
 ### Classificação `severity` × `score`
 

@@ -58,6 +58,7 @@ cp .env.example .env
 | `CURSOR_REVIEWER_TARGET_BRANCH`| `refs/heads/master` | Branch de comparação para gerar o diff git. |
 | `CURSOR_REVIEWER_BOT_TAG` | `[Cursor Reviewer]` | Tag de identificação do bot nos comentários da PR. |
 | `CURSOR_REVIEWER_MAX_ROUNDS` | `5` | Limite de iterações de correções antes do handoff humano (`0` desativa). |
+| `SCORE_MIN` | `6` | Score mínimo (inclusive) para publicar issue como thread na PR. Issues com `score >= SCORE_MIN` entram como threads acionáveis. **Opcional** — omitir mantém o comportamento histórico (limiar 6). |
 | `CURSOR_REVIEWER_TIMEOUT_MS` | `600000` (10 min) | Tempo limite de execução da sessão do agente. |
 | `CURSOR_REVIEWER_REPO_ROOT` | — | Raiz do repositório alvo a revisar (default: detectado dinamicamente). |
 | `CURSOR_REVIEWER_REVIEW_SELF` | `false` | Se `true`, permite que o reviewer revise os próprios arquivos (apenas para desenvolvimento). |
@@ -88,6 +89,9 @@ npm run review -- [argumentos]
 *   `--stack <NOME>` ou `--stack=<NOME>` : Define a stack tecnológica ativa para o review (`ABP/Angular`, `PHP/Laravel`, `Next.js/React`, `TypeScript`, `Custom`).
 *   `--custom-prompt <VAL>` : Caminho do arquivo ou string de prompt quando a stack é `Custom` (requerido para `--stack=Custom`).
 *   `--include-patterns <VAL>` : Lista separada por vírgulas de padrões glob de inclusão (ex.: `**/*.py,**/*.go`). Sobrescreve o padrão de arquivos a incluir no diff.
+*   `--score-min <N>` ou `--score-min=<N>` : Score mínimo (inclusive) para publicar issue como thread (default: `6`). Equivalente à variável `SCORE_MIN`. **Opcional** — pipelines e scripts existentes que não passam este parâmetro continuam com limiar 6.
+
+> **Compatibilidade:** `SCORE_MIN` e `--score-min` são opt-in. Sem configurá-los, o gate permanece **6–10** (mesmo comportamento de versões anteriores). Não é necessário alterar pipelines ADO/GitHub já em produção.
 
 ---
 
@@ -108,7 +112,7 @@ npm run review -- [argumentos]
    └─ Fase 2: Investigação ──► Prova/refuta hipóteses usando tools (read, grep, rules locales)
         │
         ▼
-[Gate de Validação] ──► Filtra reviews inválidos ou com score ≤ 5
+[Gate de Validação] ──► Filtra reviews inválidos ou com score < SCORE_MIN (default: 6)
         │
         ▼
 [Publicação na PR]

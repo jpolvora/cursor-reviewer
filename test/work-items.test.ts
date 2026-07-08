@@ -1,6 +1,26 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { formatWorkItemsLoadedLogMessage } from '../src/ado/work-items.js';
+import {
+  buildWorkItemContextForLlm,
+  formatWorkItemsLoadedLogMessage,
+} from '../src/ado/work-items.js';
+
+describe('buildWorkItemContextForLlm', () => {
+  it('retorna vazio sem seções', () => {
+    assert.equal(buildWorkItemContextForLlm([]), '');
+  });
+
+  it('marca WIs como contexto de produto distinto da PR', () => {
+    const context = buildWorkItemContextForLlm([
+      '### Work Item #100 — User Story\n- **Title (Work Item):** CRUD de Talhões',
+    ]);
+
+    assert.ok(context.includes('## Linked Work Items'));
+    assert.ok(context.includes('Contexto de produto (não é a PR)'));
+    assert.ok(context.includes('não** os copie como se fossem o título/descrição da PR'));
+    assert.ok(context.includes('CRUD de Talhões'));
+  });
+});
 
 describe('formatWorkItemsLoadedLogMessage', () => {
   it('retorna string vazia sem work items', () => {

@@ -32,6 +32,8 @@ function minimalConfig(skillPath: string, systemPromptPath: string): ReviewerCon
     stack: 'ABP/Angular',
     stackPromptPath: null,
     stackSource: 'fallback',
+    scoreMin: 6,
+    provider: 'azuredevops' as const,
   };
 }
 
@@ -100,7 +102,12 @@ describe('buildAgentPrompt', () => {
 
     assert.ok(prompt.includes('**Pull Request ID (Azure DevOps):** #789'));
     assert.ok(prompt.includes('SYSTEM_PULLREQUEST_PULLREQUESTID'));
-    assert.ok(prompt.includes('não confunda o ID da PR com IDs de Work Items'));
+    assert.ok(prompt.includes('não confunda o **ID da PR** com IDs de Work Items'));
+    assert.ok(prompt.includes('título/descrição da **PR** ≠ título/descrição de **Work Item / Task**'));
+    assert.ok(prompt.includes('Resumo final (`reviewSummary`)'));
+    assert.ok(prompt.includes('nunca** título/descrição/AC de Work Item'));
+    assert.ok(prompt.includes('escreva `PR 694`') || prompt.includes('sem** `#`'));
+    assert.ok(prompt.includes('auto-linka como **Work Item**') || prompt.includes('vira link de **Work Item**'));
   });
 
   it('inclui diff embutido e descrição da PR quando fornecidos', () => {
@@ -110,7 +117,10 @@ describe('buildAgentPrompt', () => {
 
     const ctx: PromptContext = {
       ...promptContext,
-      prDescriptionContext: '## Pull Request (Azure DevOps)\n\n> **Pull Request ID:** #789\n\n**Título:** Equipamentos Florestais',
+      prDescriptionContext:
+        '## Pull Request (Azure DevOps)\n\n> **Pull Request ID:** #789\n\n**Título da PR:** Equipamentos Florestais',
+      workItemContext:
+        '## Linked Work Items\n\n> **Contexto de produto (não é a PR):**\n\n### Work Item #100 — User Story\n- **Title (Work Item):** CRUD de Talhões',
       diffSection: {
         mode: 'full',
         content: '```diff\n+added line\n```',
@@ -129,6 +139,8 @@ describe('buildAgentPrompt', () => {
     assert.ok(prompt.includes('+added line'));
     assert.ok(prompt.includes('Equipamentos Florestais'));
     assert.ok(prompt.includes('Use o **diff pré-carregado**'));
+    assert.ok(prompt.includes('Contexto de produto (não é a PR)'));
+    assert.ok(prompt.includes('sem misturar fontes'));
   });
 
   it('inclui metadados da stack e arquivo de recomendação no prompt', () => {
@@ -147,5 +159,55 @@ describe('buildAgentPrompt', () => {
     assert.ok(prompt.includes('- **Stack:** `PHP/Laravel`'));
     assert.ok(prompt.includes('# Recomendações Específicas da Stack (PHP/Laravel)'));
     assert.ok(prompt.includes('Problema de Query N+1'));
+  });
+
+  it('injeta override de SCORE_MIN quando diferente do default 6', () => {
+    const runnerRoot = process.cwd().includes('cursor-reviewer')
+      ? process.cwd()
+      : `${process.cwd()}/scripts/cursor-reviewer`;
+
+    const config = {
+      ...minimalConfig(`${runnerRoot}/skills/CODE_REVIEW.md`, `${runnerRoot}/skills/SYSTEM_PROMPT.md`),
+      scoreMin: 4,
+    };
+
+    const prompt = buildAgentPrompt(config, promptContext);
+
+    assert.ok(prompt.includes('## Limiar efetivo desta execução'));
+    assert.ok(prompt.includes('**SCORE_MIN=4**'));
+    assert.ok(prompt.includes('Omita achados com score < 4'));
+    assert.ok(prompt.includes('score < 4 → omita'));
+  });
+
+  it('não injeta override de SCORE_MIN quando default é 6', () => {
+    const runnerRoot = process.cwd().includes('cursor-reviewer')
+      ? process.cwd()
+      : `${process.cwd()}/scripts/cursor-reviewer`;
+
+    const prompt = buildAgentPrompt(
+      minimalConfig(`${runnerRoot}/skills/CODE_REVIEW.md`, `${runnerRoot}/skills/SYSTEM_PROMPT.md`),
+      promptContext,
+    );
+
+    assert.ok(!prompt.includes('## Limiar efetivo desta execução'));
+  });
+
+  it('inclui política de links do GitHub quando provider é github', () => {
+    const runnerRoot = process.cwd().includes('cursor-reviewer')
+      ? process.cwd()
+      : `${process.cwd()}/scripts/cursor-reviewer`;
+
+    const config = {
+      ...minimalConfig(`${runnerRoot}/skills/CODE_REVIEW.md`, `${runnerRoot}/skills/SYSTEM_PROMPT.md`),
+      provider: 'github' as const,
+      pullRequestId: 18,
+    };
+
+    const prompt = buildAgentPrompt(config, promptContext);
+
+    assert.ok(prompt.includes('**Pull Request ID (GitHub):** #18'));
+    assert.ok(prompt.includes('**Formato de menção (GitHub):**'));
+    assert.ok(prompt.includes('use `#694` para linkar'));
+    assert.ok(!prompt.includes('**Formato de menção (Azure DevOps):**'));
   });
 });

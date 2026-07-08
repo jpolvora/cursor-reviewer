@@ -41,7 +41,7 @@
 
 ### Quem decide se um achado é válido?
 
-**Resposta:** Duas camadas — (1) **agente LLM:** triagem, investigação, score, JSON; (2) **TypeScript:** gate score 6–10, campos obrigatórios, dedup (`review-validation.ts`, `post-comments.ts`).
+**Resposta:** Duas camadas — (1) **agente LLM:** triagem, investigação, score, JSON; (2) **TypeScript:** gate score `SCORE_MIN`–10 (default 6–10), campos obrigatórios, dedup (`review-validation.ts`, `post-comments.ts`).
 
 *Evidência:* `docs/flow-analysis.md`; `parseCodeReviewResponse`.
 
@@ -63,7 +63,7 @@
 
 ### O que o reviewer **não** faz?
 
-**Resposta:** Não faz auto-fix, commit ou push; não resolve thread só porque a linha sumiu do diff; não publica nits (score ≤ 5); não bloqueia a pipeline; não trata threads de humanos/outros bots como pendentes do bot.
+**Resposta:** Não faz auto-fix, commit ou push; não resolve thread só porque a linha sumiu do diff; não publica nits abaixo de `SCORE_MIN` (default: score &lt; 6); não bloqueia a pipeline; não trata threads de humanos/outros bots como pendentes do bot.
 
 *Evidência:* `README.md`; `skills/SYSTEM_PROMPT.md`.
 
@@ -103,7 +103,7 @@ flowchart TD
 | 5 | [**§7**](#7-user-story-task-e-contexto-ado) | **Work items (US/Task), descrição PR, threads** | `work-items.ts`, `pull-request.ts`, `review-context.ts` |
 | 6 | [§8](#8-montagem-do-prompt-system_prompt-vs-runtime) | Monta prompt único e chama agente | `src/agent/prompt.ts` |
 | 7 | [§9–§10](#9-agente-cursor-sdk) | Agente executa Fase 1 + Fase 2 | `runner.ts`, `stream.ts` |
-| 8 | [§12](#12-resposta-json-e-parser) | Extrai JSON; filtra score 6–10 | `parser/`, `post-comments.ts` |
+| 8 | [§12](#12-resposta-json-e-parser) | Extrai JSON; filtra score ≥ SCORE_MIN (default 6) | `parser/`, `post-comments.ts` |
 | 9 | [§13](#13-orçamento-de-rodadas-e-escalonamento) | Escalonamento (opcional) | `round-state.ts` |
 | 10 | [§14](#14-publicação-no-azure-devops) | Resolve threads → posta novas → summary | `post-comments.ts` |
 | 11 | [§16](#16-pipeline-ci-e-códigos-de-saída) | Resumo COM/SEM ISSUES | `gate.ts` |
@@ -274,9 +274,21 @@ Caso nenhuma das heurísticas acima identifique uma stack, o runner assume a sta
 
 *Evidência:* `buildPullRequestContextForLlm` em `src/ado/pull-request.ts`.
 
+### Posso usar o título/descrição do Work Item no `reviewSummary`?
+
+**Resposta:** **Não.** `reviewSummary` (e menções ao “que a PR faz”) devem usar **Título da PR** / **Descrição da PR**. User Story, Task e Bug têm textos próprios — úteis para validar requisitos/AC, mas **não** substituem a descrição da PR. O prompt marca WIs como “contexto de produto (não é a PR)”.
+
+*Evidência:* `buildVerdictAndAdoPolicy` em `src/agent/prompt.ts`; `buildWorkItemContextForLlm` em `src/ado/work-items.ts`.
+
+### Por que `#694` no resumo aparece como Work Item (ícone 📖) no Azure DevOps?
+
+**Resposta:** No ADO, `#N` na conversa da PR **sempre** auto-linka como Work Item N — não como Pull Request. Escreva `PR 694` (sem `#`). O runner ainda sanitiza o texto em `sanitizeReviewSummaryForPlatform` antes de publicar (troca `#N` da PR por `PR N`, `#N` de WI por `Work Item N`, e corrige título de WI colado no lugar do título da PR quando possível).
+
+*Evidência:* `src/ado/review-summary.ts`; publicação em `setPullRequestReviewSummary`.
+
 ### Como o agente usa US/Task no code-review?
 
-**Resposta:** Fase 1 incorpora descrição PR, work items e threads como **contexto de escopo**. Fase 2 confronta diff com critérios de aceite. AC evidente faltando → tendência `critical`; parcial → `warning`. O WI é **contexto**, não checklist infinita — o agente não inventa requisitos. Planos locais (`.cursor/plans/`) **não** são buscados automaticamente; só se lidos via tools na Fase 2.
+**Resposta:** Fase 1 incorpora descrição PR, work items e threads **sem misturar fontes**. Fase 2 confronta diff com critérios de aceite. AC evidente faltando → tendência `critical`; parcial → `warning`. O WI é **contexto de produto**, não checklist infinita — o agente não inventa requisitos nem copia o título da US como se fosse o da PR. Planos locais (`.cursor/plans/`) **não** são buscados automaticamente; só se lidos via tools na Fase 2.
 
 *Evidência:* `buildTwoPhaseWorkflow` em `src/agent/prompt.ts`; `scripts/code-review/prompts/exemplo.codereviewprompt.md`.
 
@@ -358,7 +370,7 @@ Caso nenhuma das heurísticas acima identifique uma stack, o runner assume a sta
 
 ### O que é a Fase 2 — Investigação?
 
-**Resposta:** Por candidato, **provar com tools** antes de publicar: (2.1) ler rules + skill `code-review`; (2.2) expandir contexto (entidade, AppService, EF, Angular, testes); (2.3) **4 provas obrigatórias** em `analysis` + `impactPaths`; (2.4) atribuir severity/score; filtrar score ≤ 5; (2.5) generalizar por classe (`grep`/`glob` por ocorrências irmãs). Sem as 4 provas → **não entra** em `reviews`.
+**Resposta:** Por candidato, **provar com tools** antes de publicar: (2.1) ler rules + skill `code-review`; (2.2) expandir contexto (entidade, AppService, EF, Angular, testes); (2.3) **4 provas obrigatórias** em `analysis` + `impactPaths`; (2.4) atribuir severity/score; filtrar score &lt; `SCORE_MIN` (default 6); (2.5) generalizar por classe (`grep`/`glob` por ocorrências irmãs). Sem as 4 provas → **não entra** em `reviews`.
 
 *Evidência:* `src/agent/prompt.ts` § Fase 2; `.agents/skills/code-review/SKILL.md`.
 
@@ -374,15 +386,21 @@ Caso nenhuma das heurísticas acima identifique uma stack, o runner assume a sta
 
 ### Existe fórmula de cálculo do score?
 
-**Resposta:** **Não.** O agente **atribui** score (0–10) e severity qualitativamente. O TypeScript só aceita **6–10** para publicação. Documentação completa: [`score_calc.md`](score_calc.md).
+**Resposta:** **Não.** O agente **atribui** score (0–10) e severity qualitativamente. O TypeScript só aceita **SCORE_MIN–10** para publicação (default **6–10**). Documentação completa: [`score_calc.md`](score_calc.md).
 
-*Evidência:* `src/ado/review-validation.ts` — `MIN_PUBLISHABLE_SCORE = 6`; `skills/SYSTEM_PROMPT.md`.
+*Evidência:* `src/ado/review-validation.ts` — `DEFAULT_SCORE_MIN = 6`; `src/config.ts` — `SCORE_MIN` / `--score-min`; `skills/SYSTEM_PROMPT.md`.
 
 ### Quais scores são publicados?
 
-**Resposta:** 0–5 → não publica; 6–8 → `warning` ou `suggestion`; 9–10 → `critical`.
+**Resposta:** Com o default (`SCORE_MIN=6`): 0–5 → não publica; 6–8 → `warning` ou `suggestion`; 9–10 → `critical`. Com `SCORE_MIN` menor (ex.: `4`), scores 4–5 também podem virar thread se passarem no gate completo.
 
 *Evidência:* `src/ado/review-validation.ts`; [`score_calc.md`](score_calc.md).
+
+### Como configurar o limiar de publicação (`SCORE_MIN`)?
+
+**Resposta:** Opcional. Env `SCORE_MIN=N` ou CLI `--score-min N` (precedência: CLI &gt; env &gt; default `6`). **Omitir** ambos mantém pipelines existentes intactas — sem breaking change.
+
+*Evidência:* `src/config.ts` (`parseScoreMin`, `loadConfig`); `README.md`.
 
 ---
 
@@ -420,7 +438,7 @@ Caso nenhuma das heurísticas acima identifique uma stack, o runner assume a sta
 
 ### Quando uma review vira thread?
 
-**Resposta:** Quando passa em `isPublishableReview` (score ≥ 6, campos OK) **e** não é duplicata na mesma linha.
+**Resposta:** Quando passa em `isPublishableReview` (score ≥ `SCORE_MIN`, default 6, campos OK) **e** não é duplicata na mesma linha.
 
 *Evidência:* `src/ado/post-comments.ts` — `setPullRequestComments`, `isDuplicateReview`.
 
@@ -432,9 +450,9 @@ Caso nenhuma das heurísticas acima identifique uma stack, o runner assume a sta
 
 ### Como funciona a política `reviews` vs `reviewSummary`?
 
-**Resposta:** Se `reviews` e `reviewSummary` juntos → mantém reviews, limpa summary. Reviews com `critical` + summary → summary ignorado. Sem reviews, sem críticos, sem threads pendentes do bot → publica `reviewSummary` (thread **fechada**).
+**Resposta:** Se `reviews` e `reviewSummary` juntos → mantém reviews, limpa summary. Reviews com `critical` + summary → summary ignorado. Sem reviews, sem críticos, sem threads pendentes do bot → publica `reviewSummary` (thread **fechada**). O texto do resumo deve referenciar a **descrição da PR**, não de Work Items.
 
-*Evidência:* `getCodeReviewPostingPlan` em `src/ado/post-comments.ts`.
+*Evidência:* `getCodeReviewPostingPlan` em `src/ado/post-comments.ts`; veredito em `src/agent/prompt.ts`.
 
 ### O que aparece na build do Azure DevOps?
 
@@ -568,8 +586,9 @@ Caso nenhuma das heurísticas acima identifique uma stack, o runner assume a sta
 | Como o prompt é montado? | System Prompt + CODE_REVIEW + contexto + diff + rules + ADO + workflow 2 fases (`prompt.ts`). |
 | O agente lê o repo? | **Sim** — tools com `settingSources: ['project']` e sandbox read-only. |
 | Quantas fases de análise? | **Duas** na mesma execução: triagem → investigação. |
-| Como o score é calculado? | **Atribuição qualitativa** pelo LLM; gate 6–10 no TypeScript ([`score_calc.md`](score_calc.md)). |
-| O que vira thread? | Review com score 6–10, campos OK, linha não duplicada. |
+| Como o score é calculado? | **Atribuição qualitativa** pelo LLM; gate `SCORE_MIN`–10 no TypeScript (default 6) ([`score_calc.md`](score_calc.md)). |
+| O que vira thread? | Review com score ≥ `SCORE_MIN` (default 6), campos OK, linha não duplicada. |
+| Como abaixar o limiar de threads? | `SCORE_MIN=4` ou `--score-min 4` (opt-in; omitir = default 6). |
 | Por que sumiu um warning na rodada 4? | Escalonamento `MAX_ROUNDS` — só `critical` segue sendo publicado. |
 | Posso testar localmente? | `npm run review -- --dry-run` em `scripts/cursor-reviewer`. |
 | Onde customizar critérios? | Repo alvo: `.agents/skills/code-review/`; runner: `skills/SYSTEM_PROMPT.md`. |

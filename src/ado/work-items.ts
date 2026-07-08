@@ -72,6 +72,21 @@ function toWorkItemSummary(workItem: { id: number; fields: Record<string, unknow
   };
 }
 
+/** Monta a seção de WIs para o prompt — deixa explícito que não é a descrição da PR. */
+export function buildWorkItemContextForLlm(sections: string[]): string {
+  if (sections.length === 0) {
+    return '';
+  }
+
+  return [
+    '## Linked Work Items',
+    '',
+    '> **Contexto de produto (não é a PR):** cada item abaixo é User Story / Task / Bug / etc. **separado** da Pull Request. Use título, descrição e Acceptance Criteria para validar requisitos do diff — **não** os copie como se fossem o título/descrição da PR em `reviewSummary` ou comentários.',
+    '',
+    sections.join('\n\n---\n\n'),
+  ].join('\n');
+}
+
 export async function getPullRequestWorkItemContext(
   client: AdoClient,
   pullRequestId: number,
@@ -93,7 +108,7 @@ export async function getPullRequestWorkItemContext(
     const summaries = details.value.map(toWorkItemSummary);
 
     const sections = details.value.map((wi) => formatWorkItemSection(wi));
-    const contextForLlm = `## Linked Work Items\n\n${sections.join('\n\n---\n\n')}`;
+    const contextForLlm = buildWorkItemContextForLlm(sections);
 
     const loadedMessage = formatWorkItemsLoadedLogMessage(summaries);
     if (loadedMessage) {
@@ -121,12 +136,12 @@ async function fetchWorkItems(client: AdoClient, ids: number[]): Promise<AdoWork
 function formatWorkItemSection(workItem: { id: number; fields: Record<string, unknown> }): string {
   const fields = workItem.fields;
   let section = `### Work Item #${workItem.id} — ${fields['System.WorkItemType']}
-- **Title:** ${fields['System.Title']}
+- **Title (Work Item):** ${fields['System.Title']}
 - **State:** ${fields['System.State']}`;
 
   const description = getFieldText(fields, 'System.Description');
   if (description) {
-    section += `\n\n**Description:**\n${description}`;
+    section += `\n\n**Description (Work Item — não é a descrição da PR):**\n${description}`;
   }
 
   const acceptanceCriteria = getFieldText(fields, 'Microsoft.VSTS.Common.AcceptanceCriteria');

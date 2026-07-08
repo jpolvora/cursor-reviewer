@@ -3,15 +3,20 @@ import type { CodeReviewItem, DeveloperAction, ReviewSeverity } from './types.js
 const VALID_SEVERITIES = new Set<ReviewSeverity>(['critical', 'warning', 'suggestion']);
 const VALID_ACTIONS = new Set<DeveloperAction>(['fix-code', 'resolve-comment', 'escalate']);
 
-export const MIN_PUBLISHABLE_SCORE = 6;
+export const DEFAULT_SCORE_MIN = 6;
+/** @deprecated Prefer {@link DEFAULT_SCORE_MIN} */
+export const MIN_PUBLISHABLE_SCORE = DEFAULT_SCORE_MIN;
 export const MAX_PUBLISHABLE_SCORE = 10;
 
 /** Review elegível para publicação na PR (contrato prompt + gate programático). */
-export function isPublishableReview(review: CodeReviewItem): boolean {
+export function isPublishableReview(
+  review: CodeReviewItem,
+  scoreMin: number = DEFAULT_SCORE_MIN,
+): boolean {
   if (typeof review.score !== 'number' || !Number.isFinite(review.score)) {
     return false;
   }
-  if (review.score < MIN_PUBLISHABLE_SCORE || review.score > MAX_PUBLISHABLE_SCORE) {
+  if (review.score < scoreMin || review.score > MAX_PUBLISHABLE_SCORE) {
     return false;
   }
   if (!review.fileName?.trim()) {
@@ -45,6 +50,9 @@ export function isPublishableReview(review: CodeReviewItem): boolean {
   return true;
 }
 
-export function filterPublishableReviews(reviews: CodeReviewItem[]): CodeReviewItem[] {
-  return reviews.filter(isPublishableReview);
+export function filterPublishableReviews(
+  reviews: CodeReviewItem[],
+  scoreMin: number = DEFAULT_SCORE_MIN,
+): CodeReviewItem[] {
+  return reviews.filter((review) => isPublishableReview(review, scoreMin));
 }
