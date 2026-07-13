@@ -1,5 +1,7 @@
 # Cursor Reviewer — Code Review Agêntico (Review-Only)
 
+> 🌐 **Website Oficial e Catálogo de Skills:** [jpolvora.github.io/cursor-reviewer](https://jpolvora.github.io/cursor-reviewer/)
+
 O **Cursor Reviewer** é um revisor de Pull Requests automatizado e portável para **Azure DevOps** e **GitHub**. Ele utiliza o [**Cursor SDK**](https://cursor.com/docs/sdk/typescript) (`@cursor/sdk`) em modo agêntico para realizar análises profundas diretamente no diff do repositório, guiado pelo harness do projeto (regras do `.cursor/rules/`, `AGENTS.md` e instruções de code-review). 
 
 O revisor atua **exclusivamente em modo de leitura (review-only)**, publicando threads acionáveis nas linhas afetadas da PR. Ele **não altera arquivos no repositório**. A decisão final de aplicar a correção sugerida ou encerrar a thread é sempre do desenvolvedor.
@@ -363,5 +365,5 @@ Executa remotamente especificando a organização e projeto:
 *   `src/agent/` : Código de conexão com o Cursor SDK, geração do prompt e tokens.
 *   `src/ado/` : Regras de validação do gate, de rodadas, formatação de threads e helpers do ADO.
 *   `skills/` : Contratos de prompts estáticos do agente (`SYSTEM_PROMPT.md` e `CODE_REVIEW.md`) e subpasta `skills/stacks/` contendo os prompts complementares com as recomendações de cada stack.
-*   `.agents/skills/` : Skills agênticas do ecossistema do runner (`code-review-self`, `megabrain`, `solve-pr` e scripts auxiliares).
+*   `.agents/skills/` : Skills agênticas do ecossistema do runner (`code-review-self`, `megabrain`, `solve-pr`, `spec-to-pr` e scripts auxiliares).
 *   `demo-project/` : Projeto de demonstração contendo erros intencionais para fins de testes locais.

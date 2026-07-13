@@ -597,6 +597,30 @@ Caso nenhuma das heurísticas acima identifique uma stack, o runner assume a sta
 | Como configurar o modelo? | `--model` > `CURSOR_REVIEWER_MODEL` > default `composer-2.5`; IDs em `model.ts`. |
 | Modelo inválido na pipeline? | Macro ADO vazia cai no default; ID inexistente no enum → exit 1 na subida. |
 | Preciso de PAT local? | Só para ADO (threads/work items/publicação); dry-run básico: só `CURSOR_API_KEY`. |
+| O que é o site do cursor-reviewer? | Uma página estática de apresentação e catálogo das 25 skills locais. |
+| Como atualizar o catálogo do site? | Rodando `node scripts/build-site.js` localmente ou via Actions no merge da branch `main`. |
+
+---
+
+## 18. Website e Catálogo de Skills
+
+### O que é o site do cursor-reviewer?
+
+**Resposta:** Uma página estática contendo a apresentação do produto (recursos, requisitos, modos de uso local e CI) e um catálogo interativo das 25 skills de IA instaladas na pasta `.agents/skills/`.
+
+*Evidência:* `docs/index.html`; `scripts/build-site.js`.
+
+### Como o site é atualizado?
+
+**Resposta:** Através do script `node scripts/build-site.js` na raiz do projeto. Ele lê as pastas de `.agents/skills/`, faz o parse do frontmatter YAML do `SKILL.md` de cada uma delas, reconstrói o catálogo HTML correspondente agrupando-as por categoria e atualiza o arquivo `docs/index.html`.
+
+*Evidência:* `scripts/build-site.js`.
+
+### Como o deploy do site é automatizado?
+
+**Resposta:** Através do workflow do GitHub Actions em `.github/workflows/deploy-site.yml`. Ele é executado sempre que há um push/merge na branch `main`, executando o build do catálogo de skills e fazendo commit/push automático de qualquer alteração regenerada no arquivo `docs/index.html`.
+
+*Evidência:* `.github/workflows/deploy-site.yml`.
 
 ---
 
