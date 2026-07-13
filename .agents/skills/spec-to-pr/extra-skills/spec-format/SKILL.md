@@ -124,7 +124,7 @@ specDate: 2026-07-02  # generation date or last relevant update
 
 ## Downstream consumers
 
-`spec-to-pr`, `write-plan`, `interview`, `verify-plan`, `integration-validation` read **`{us-dir}/step-00-{slug}.spec.md`** — never live tracker APIs and never `*.issue.json`. See [`ARTIFACTS.md`](../../ARTIFACTS.md).
+`spec-to-pr`, `01-write-plan`, `02-interview`, `05-verify-plan`, `07-integration-validation` read **`{us-dir}/step-00-{slug}.spec.md`** — never live tracker APIs and never `*.issue.json`. See [`ARTIFACTS.md`](../../ARTIFACTS.md).
 
 ## References
 

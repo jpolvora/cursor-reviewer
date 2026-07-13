@@ -20,7 +20,7 @@ Responsible for driving PR review thread convergence to zero. It wraps the [08-f
 /goal-fix-pr <PR-NUMBER> [dry-run] [max <n>]
 ```
 
-### Workflow Mode (Step 12 of spec-to-pr)
+### Workflow Mode (Step 13 of spec-to-pr, inside ship-pr)
 
 Dispatched automatically by `spec-to-pr` when `ship-pr` triggers thread convergence monitoring. Receives `PR-NUMBER` and `max` from the orchestrator's parameters.
 
