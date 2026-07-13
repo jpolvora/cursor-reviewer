@@ -840,12 +840,12 @@ Delegated to [`setup.md`](setup.md) § Bootstrap & Entry. Before Step 0, the orc
 | 3 | `Task` `03-plan-to-tasks`; detect plan size → `execMode`. Sequential → skip DAG. Parallel → DAG. | `step-03-{slug}.plan.exec.md`, `step-03-{slug}.exec.dag.json` |
 | 4† | Model sub-gate F1→F2 | not in completedSteps |
 | 5 | `Task` `04-implement-tasks` mode build; worktree. `sequential` → single Task. `parallel` → DAG ≤3/level. | verification |
-| 6 | `Task` `05-verify-sync-plan-us` readonly | `step-06-{slug}.plan.report.md` |
+| 6 | `Task` `05-verify-plan` readonly | `step-06-{slug}.plan.report.md` |
 | 7 | AskQuestion G2-code → Shell build/test → `git commit` code `feat(us-{id}): US {id} implementation` | commit; no `.cursor/plans/` |
 | 8† | Model sub-gate F3→F4 | not in completedSteps |
 | 9 | `Task` `06-code-review`; scoped diff per `config.json.rules.stackFile` | score ≥6 or "No feedback" |
 | 10 | `Task` `04-implement-tasks` mode fix; G2-code only; `step-10-{slug}.report.md` uncommitted | HS-3/4 |
-| 11 | skipIntegration→Write skip; else `Task` integration-validation; browser if gated | reports uncommitted (`step-11-{slug}.integration-test.*`) |
+| 11 | skipIntegration→Write skip; else `Task` `07-integration-validation`; browser if gated | reports uncommitted (`step-11-{slug}.integration-test.*`) |
 | 12 | [Delivery Result Protocol](#delivery-result-protocol-step-12--before-delivery-commit) → LOC capture + benchmark → G2-delivery commit → optional [cleanup](#optional-artifact-cleanup-protocol-step-12--after-delivery-commit). `status: completed` unless `fullMode`. | `step-12-{slug}.result.md` + benchmark |
 | 13 | `fullMode` only. Gate → `Task`/`Shell` `11-ship-pr`: push → PR → goal-fix-pr (5m, max 10) → merge. | PR URL, merge |
 
@@ -891,7 +891,7 @@ Retry: max 3; backoff 0s→30s→60s. Revert: Checkpoint Algorithm only. Conduct
 
 ## Post-workflow (outside this agent)
 
-Manual QA after workflow completion (or pause before Step 12) not resumed here. Use [`step-10-update-plan-implementation`](../10-update-plan-implementation/SKILL.md) (`/step-10`) — append plan §9, implement delta, update `{slug}.result.md`, certify for PR. Distinct from Step 10 (in-pipeline review fixes).
+Manual QA after workflow completion (or pause before Step 12) not resumed here. Use [`10-update-plan-implementation`](../10-update-plan-implementation/SKILL.md) (`/step-10`) — append plan §9, implement delta, update `{slug}.result.md`, certify for PR. Distinct from Step 10 (in-pipeline review fixes).
 
 ## Triggers
 
