@@ -61,6 +61,15 @@ export function resolveRunnerRoot(fromModuleUrl: string): string {
 }
 
 export function detectProjectName(repoRoot: string): string {
+  // ADO checkout usa pasta "s" (/home/vsts/work/1/s) — basename vira "s" no log.
+  const fromAdo = process.env.BUILD_REPOSITORY_NAME?.trim();
+  if (fromAdo) {
+    return fromAdo.includes('/') ? (fromAdo.split('/').pop() ?? fromAdo) : fromAdo;
+  }
+  const fromGithub = process.env.GITHUB_REPOSITORY?.trim();
+  if (fromGithub) {
+    return fromGithub.includes('/') ? (fromGithub.split('/').pop() ?? fromGithub) : fromGithub;
+  }
   return basename(resolve(repoRoot));
 }
 

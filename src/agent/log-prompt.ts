@@ -23,8 +23,8 @@ export function useAnsiColors(): boolean {
     return true;
   }
   if (isAzurePipeline()) {
-    // Agentes ADO recentes renderizam ANSI; desligável via env.
-    return process.env.CURSOR_REVIEWER_PROMPT_COLOR?.trim().toLowerCase() !== 'false';
+    // Opt-in: ANSI no prompt polui o log cru do ADO (escapes literais / linhas “quebradas”).
+    return process.env.CURSOR_REVIEWER_PROMPT_COLOR?.trim().toLowerCase() === 'true';
   }
   return process.stdout.isTTY === true;
 }

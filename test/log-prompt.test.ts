@@ -27,6 +27,17 @@ describe('useAnsiColors', () => {
     process.env.FORCE_COLOR = '1';
     assert.equal(useAnsiColors(), true);
   });
+
+  it('desliga ANSI por padrão no Azure Pipeline (opt-in via CURSOR_REVIEWER_PROMPT_COLOR=true)', () => {
+    delete process.env.NO_COLOR;
+    delete process.env.FORCE_COLOR;
+    process.env.TF_BUILD = 'True';
+    delete process.env.CURSOR_REVIEWER_PROMPT_COLOR;
+    assert.equal(useAnsiColors(), false);
+
+    process.env.CURSOR_REVIEWER_PROMPT_COLOR = 'true';
+    assert.equal(useAnsiColors(), true);
+  });
 });
 
 describe('colorizePromptForDisplay', () => {
