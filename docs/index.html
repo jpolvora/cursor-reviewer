@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cursor Reviewer — Agentic PR Code Reviews</title>
+  <meta name="description" content="Automated, agentic Pull Request code review runner using Cursor SDK for GitHub and Azure DevOps pipelines.">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked@15.0.6/marked.min.js"></script>
+</head>
+<body>
+
+<nav>
+  <div class="inner">
+    <a href="#" class="logo">Cursor Reviewer</a>
+    <a href="#about">About</a>
+    <a href="#how-it-works">How It Works</a>
+    <a href="#install">Install & CI</a>
+    <a href="#catalog">Skills Catalog</a>
+    <div class="nav-right">
+      <a href="https://github.com/jpolvora/cursor-reviewer" class="star-btn" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.751.751 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z"></path></svg>
+        Star repo
+      </a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <h1>Cursor <span>Reviewer</span></h1>
+  <p>An automated, agentic code review runner for Pull Requests. It analyzes code diffs via <strong>Cursor SDK</strong>, evaluates domain/pipeline rules, and posts surgical thread suggestions directly to your PR on GitHub or Azure DevOps.</p>
+  <div class="badges">
+    <span class="badge">25 skills</span>
+    <span class="badge">Node.js 22.13+</span>
+    <span class="badge">GitHub & ADO</span>
+    <span class="badge">MIT License</span>
+  </div>
+</header>
+
+<section id="about">
+  <h2>Product Overview</h2>
+  <div class="skill-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+    <div class="skill-card">
+      <div class="name" style="color: var(--accent);">🤖 Agentic Core</div>
+      <div class="desc">Powered by Cursor Composer models under the hood. It acts as an autonomous senior code reviewer, performing triages and deep investigations on your PR diffs.</div>
+    </div>
+    <div class="skill-card">
+      <div class="name" style="color: var(--accent);">📝 Surgical Threads</div>
+      <div class="desc">Only reports actionable problems with clear severity scoring (0–10). Avoids noise and styling nits by enforcing a strict score threshold.</div>
+    </div>
+    <div class="skill-card">
+      <div class="name" style="color: var(--accent);">🔄 Cooperative Loop</div>
+      <div class="desc">Integrates seamlessly with local developer IDE agents like <code>solve-pr</code> or <code>goal-fix-pr</code> using standard markers to collaboratively resolve feedback.</div>
+    </div>
+  </div>
+</section>
+
+<section id="how-it-works">
+  <h2>How It Works</h2>
+  <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px; margin-bottom: 24px;">
+    <h3 style="color: var(--accent); margin-bottom: 12px;">Two-Phase Review Model</h3>
+    <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 0.95rem;">
+      To minimize false positives, the agent analyzes code in two distinct sequential phases:
+    </p>
+    <ol style="padding-left: 20px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.8;">
+      <li><strong>Phase 1 — Triage:</strong> Scans the diff to identify potential bugs, logical issues, security risks, or architectural discrepancies. All non-issues, stylistic nits, and stylistic rules are immediately skipped.</li>
+      <li><strong>Phase 2 — Investigation:</strong> The agent performs structural research on the candidates by readingcaller files, test cases, and adjacent models using <code>read_file</code> and <code>grep_search</code>. An issue is only reported if it satisfies a structured 4-step proof (Evidence, Scenario, Protection Gap, Alternative Discards).</li>
+    </ol>
+  </div>
+</section>
+
+<section id="install">
+  <h2>Installation & CI Integration</h2>
+  <div class="install-steps">
+    <div class="install-step">
+      <h4>Local Setup</h4>
+      <p>Configure your <code>.env</code> file with your API key:</p>
+      <pre><code>CURSOR_API_KEY="your_api_key"</code></pre>
+      <p style="margin-top: 8px;">Run dry-run review locally:</p>
+      <pre><code>npm run review -- --dry-run</code></pre>
+    </div>
+    <div class="install-step">
+      <h4>GitHub Actions Workflow</h4>
+      <p>Add a workflow block to run on pull requests:</p>
+      <pre><code>- name: Run Reviewer Agent
+  env:
+    CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  run: |
+    npx cursor-reviewer --gh --pr-id ${{ github.event.pull_request.number }}</code></pre>
+    </div>
+    <div class="install-step">
+      <h4>Azure Pipelines</h4>
+      <p>Enable PR comments in Azure DevOps:</p>
+      <pre><code>- script: |
+    npx cursor-reviewer --ado --pr-id $(System.PullRequest.PullRequestId)
+  env:
+    CURSOR_API_KEY: $(CURSOR_API_KEY)
+    SYSTEM_ACCESSTOKEN: $(System.AccessToken)</code></pre>
+    </div>
+  </div>
+</section>
+
+<section id="catalog">
+  <h2>Skill Catalog</h2>
+
+  <!-- Category: spec-to-pr Pipeline (FSM) -->
+  <div class="layer">
+    <h3>spec-to-pr Pipeline (FSM) <span class="count">(13)</span></h3>
+    <p class="layer-desc" style="color:var(--text-muted);font-size:0.875rem;margin-bottom:16px;">Pipeline completo de entrega desde a especificação técnica até o merge da PR.</p>
+    <div class="skill-grid">
+      <div class="skill-card" data-path=".agents/skills/00-write-spec/SKILL.md">
+        <div class="name">00-write-spec</div>
+        <div class="desc">Receives a high-level feature description and drafts a canonical step-00-{slug}.spec.md specification.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/00-write-spec/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v3.1</span>
+        </div>
+      </div>
+      <div class="skill-card" data-path=".agents/skills/01-write-plan/SKILL.md">
+        <div class="name">01-write-plan</div>
+        <div class="desc">Generates the initial implementation plan (step-01-{slug}.plan.md) from the specification.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/01-write-plan/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v3.2</span>
+        </div>
+      </div>
+      <div class="skill-card" data-path=".agents/skills/02-interview/SKILL.md">
+        <div class="name">02-interview</div>
+        <div class="desc">Audits and interrogates an implementation plan to resolve ambiguities and verify ready criteria before tasks are created.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/02-interview/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.6</span>
+        </div>
+      </div>
+      <div class="skill-card" data-path=".agents/skills/03-plan-to-tasks/SKILL.md">
+        <div class="name">03-plan-to-tasks</div>
+        <div class="desc">Breaks an implementation plan into atomic tasks with files, ACs, and coderPrompts, organized in a DAG topological order.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/03-plan-to-tasks/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v2.1</span>
+        </div>
+      </div>
+      <div class="skill-card" data-path=".agents/skills/04-implement-tasks/SKILL.md">
+        <div class="name">04-implement-tasks</div>
+        <div class="desc">Executes code implementations or fixes defects following a plan, DAG, or code review findings.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/04-implement-tasks/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v2.1</span>
+        </div>
+      </div>
+      <div class="skill-card" data-path=".agents/skills/05-verify-plan/SKILL.md">
+        <div class="name">05-verify-plan</div>
+        <div class="desc">Compares implementation quality and code deliverables against the plan and acceptance criteria.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/05-verify-plan/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v2.1</span>
+        </div>
+      </div>
+      <div class="skill-card" data-path=".agents/skills/06-code-review/SKILL.md">
+        <div class="name">06-code-review</div>
+        <div class="desc">Senior code reviewer — two-phase triage and investigation with defect class generalization. Standalone or workflow Step 9.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/06-code-review/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v3.1</span>
+        </div>
+      </div>
+      <div class="skill-card" data-path=".agents/skills/07-integration-validation/SKILL.md">
+        <div class="name">07-integration-validation</div>
+        <div class="desc">Plans and executes pre-PR integration test batteries, verifying backend, database, RBAC, tenancy, and UI interfaces.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/07-integration-validation/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v2.1</span>
+        </div>
+      </div>
+      <div class="skill-card" data-path=".agents/skills/08-fix-pr/SKILL.md">
+        <div class="name">08-fix-pr</div>
+        <div class="desc">Cooperatively resolve active PR code review threads on GitHub or Azure DevOps with structured validation and reports.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/08-fix-pr/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.1</span>
+        </div>
+      </div>
+      <div class="skill-card" data-path=".agents/skills/09-goal-fix-pr/SKILL.md">
+        <div class="name">09-goal-fix-pr</div>
+        <div class="desc">Convergence loop — runs fix-pr rounds until all PR threads are resolved or the max iteration cap is reached.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/09-goal-fix-pr/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.1</span>
+        </div>
+      </div>
+      <div class="skill-card" data-path=".agents/skills/10-update-plan-implementation/SKILL.md">
+        <div class="name">10-update-plan-implementation</div>
+        <div class="desc">Post-workflow delta adjustments. Captures manual QA findings, plans delta fixes, implements changes, and updates result summaries.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/10-update-plan-implementation/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.1</span>
+        </div>
+      </div>
+      <div class="skill-card" data-path=".agents/skills/11-ship-pr/SKILL.md">
+        <div class="name">11-ship-pr</div>
+        <div class="desc">End-to-end delivery — verify branch state, commit, push, create PR workingBranch → baseBranch, run goal-fix-pr loops, and merge.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/11-ship-pr/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.2</span>
+        </div>
+      </div>
+      <div class="skill-card" data-path=".agents/skills/spec-to-pr/SKILL.md">
+        <div class="name">spec-to-pr</div>
+        <div class="desc">Spec-to-PR delivery orchestrator FSM (F0–F6, steps 0–12; 13 with `--full`). Agent contract only — not human docs.   Invoke: /spec-to-pr | @[spec-to-pr]. Entry: GitHub issue | Azure DevOps work item | *.spec.md | feature description.   Flags: dry-run, auto, skip-integration, skip-tests, full, --model, --model-chain. Delegates via Task tool.   Legacy aliases: /us-workflow, /us-delivery-workflow.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/spec-to-pr/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.0</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Category: Review & Auditoria de Código -->
+  <div class="layer">
+    <h3>Review & Auditoria de Código <span class="count">(9)</span></h3>
+    <p class="layer-desc" style="color:var(--text-muted);font-size:0.875rem;margin-bottom:16px;">Agentes especialistas em auditoria de segurança, performance, arquitetura e domínios.</p>
+    <div class="skill-grid">
+      <div class="skill-card" data-path=".agents/skills/code-review-self/SKILL.md">
+        <div class="name">code-review-self</div>
+        <div class="desc">Code review agêntica executada pelo próprio harness/IDE (opencode) que imita o pipeline cursor-reviewer (@cursor/sdk). Realiza revisão somente-leitura em duas fases, aplica o gate de publicação, controla rodadas/escalonamento e devolve o contrato JSON idêntico ao de src/index.ts. Use quando o usuário pedir "code review self", "revisar PR local", "rodar cursor-reviewer pelo agente", ou revisão agêntica sem o SDK do Cursor.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/code-review-self/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.0</span>
+        </div>
+      </div>
+      <div class="skill-card" data-path=".agents/skills/domain-review/SKILL.md">
+        <div class="name">domain-review</div>
+        <div class="desc">Use when the user asks for domain review, bounded-context review, code-review by domain,   subdomain audit, or to pick a domain from specs/domains for smells/security/SOLID/perf.   Also when they say /domain-review, /domain-review next, /domain-review auto, or   /domain-review next auto (auto-pick + optional full fix/PR/goal-fix-pr cycle).</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/domain-review/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.0</span>
+        </div>
+      </div>
+      <div class="skill-card" data-path=".agents/skills/dotnet-security-performance-review/SKILL.md">
+        <div class="name">dotnet-security-performance-review</div>
+        <div class="desc">Perform C# security and performance code reviews for login, authorization, and database access. Use when auditing backend auth, checking EF transactions, database queries, roles, impersonation safety, or optimizing API endpoints.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/dotnet-security-performance-review/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.0</span>
+        </div>
+      </div>
+      <div class="skill-card" data-path=".agents/skills/megabrain/SKILL.md">
+        <div class="name">megabrain</div>
+        <div class="desc">Revisor de código com threads persistentes entre rodadas de review. Atribui IDs cronológicos a cada issue, avalia correções do desenvolvedor contra threads abertas e evita repetir feedback histórico ou perder issues não resolvidas. Use ao revisar PRs iterativamente, acompanhar threads em múltiplos commits ou conduzir follow-ups após correções do desenvolvedor.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/megabrain/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.0</span>
+        </div>
+      </div>
+      <div class="skill-card" data-path=".agents/skills/multi-domain-review/SKILL.md">
+        <div class="name">multi-domain-review</div>
+        <div class="desc">Use when the user asks to review multiple domains, batch domain-review, rotate all   stale/never-reviewed domains, or says /multi-domain-review, multi-domain review,   review all domains, or domain-review queue/batch with the 7-day freshness window.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/multi-domain-review/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.0</span>
+        </div>
+      </div>
+      <div class="skill-card" data-path=".agents/skills/secrets-leak-review/SKILL.md">
+        <div class="name">secrets-leak-review</div>
+        <div class="desc">Scans repository for hardcoded secrets, passwords, API keys, PII, private keys, connection strings, .env files, and client-confidential data before commit. Use when asked to "check for secrets", "leak check", "secrets scan", "pre-commit security check", "check for hardcoded passwords", "PII scan", "repo leak audit", or before pushing to a public repository.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/secrets-leak-review/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.0</span>
+        </div>
+      </div>
+      <div class="skill-card" data-path=".agents/skills/security-review/SKILL.md">
+        <div class="name">security-review</div>
+        <div class="desc">Security code review for vulnerabilities. Use when asked to "security review", "find vulnerabilities", "check for security issues", "audit security", "OWASP review", or review code for injection, XSS, authentication, authorization, cryptography issues. Provides systematic review with confidence-based reporting.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/security-review/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.0</span>
+        </div>
+      </div>
+      <div class="skill-card" data-path=".agents/skills/solve-pr/SKILL.md">
+        <div class="name">solve-pr</div>
+        <div class="desc">Skill agêntica para buscar as threads ativas de uma PR do GitHub, analisar os problemas, propor correções, implementar soluções, fazer commit, push e aguardar a próxima rodada de code review.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/solve-pr/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.0</span>
+        </div>
+      </div>
+      <div class="skill-card" data-path=".agents/skills/tdd-sdd-ddd-reviewer/SKILL.md">
+        <div class="name">tdd-sdd-ddd-reviewer</div>
+        <div class="desc">Architectural audit (TDD, spec-driven design, DDD) for C# .NET backends and React frontends.   Use when explicitly asked for clean-architecture, layer-boundary, or TDD/DDD review — not default PR review.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/tdd-sdd-ddd-reviewer/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.0</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Category: Utilidades & Frontend -->
+  <div class="layer">
+    <h3>Utilidades & Frontend <span class="count">(3)</span></h3>
+    <p class="layer-desc" style="color:var(--text-muted);font-size:0.875rem;margin-bottom:16px;">Diretrizes gerais de design, boas práticas e geradores de novos agentes.</p>
+    <div class="skill-grid">
+      <div class="skill-card" data-path=".agents/skills/taste-skill/SKILL.md">
+        <div class="name">design-taste-frontend</div>
+        <div class="desc">Anti-slop frontend skill for landing pages, portfolios, and redesigns. The agent reads the brief, infers the right design direction, and ships interfaces that do not look templated. Real design systems when applicable, audit-first on redesigns, strict pre-flight check.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/taste-skill/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.0</span>
+        </div>
+      </div>
+      <div class="skill-card" data-path=".agents/skills/mobile-first-design/SKILL.md">
+        <div class="name">mobile-first-design</div>
+        <div class="desc">Design for mobile devices first, then scale up to larger screens. Create   responsive interfaces that work seamlessly across all device sizes.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/mobile-first-design/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.0</span>
+        </div>
+      </div>
+      <div class="skill-card" data-path=".agents/skills/write-a-skill/SKILL.md">
+        <div class="name">write-a-skill</div>
+        <div class="desc">Create new agent skills with proper structure, progressive disclosure, and bundled resources. Use when user wants to create, write, or build a new skill.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/write-a-skill/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.0</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>MIT License &mdash; <a href="https://github.com/jpolvora/cursor-reviewer">jpolvora/cursor-reviewer</a></p>
+</footer>
+
+<!-- Modal -->
+<div id="skill-modal" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span class="modal-title"></span>
+      <div class="modal-actions">
+        <button class="close-btn" title="Close">&times;</button>
+      </div>
+    </div>
+    <div class="modal-tabs">
+      <button class="modal-tab active" data-tab="preview">Preview</button>
+      <button class="modal-tab" data-tab="raw">Raw</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-panel" id="modal-panel-preview">
+        <div class="modal-markdown"></div>
+      </div>
+      <div class="modal-panel hidden" id="modal-panel-raw">
+        <div class="raw-toolbar">
+          <span class="raw-label">.agents/skills/&hellip;/SKILL.md</span>
+          <button class="copy-btn" title="Copy raw markdown">Copy</button>
+        </div>
+        <pre class="modal-raw"></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const RAW_BASE = 'https://raw.githubusercontent.com/jpolvora/cursor-reviewer/main/';
+  const modal = document.getElementById('skill-modal');
+  const modalTitle = modal.querySelector('.modal-title');
+  const modalMarkdown = modal.querySelector('.modal-markdown');
+  const modalRaw = modal.querySelector('.modal-raw');
+  const closeBtn = modal.querySelector('.close-btn');
+  const copyBtn = modal.querySelector('.copy-btn');
+  const tabs = modal.querySelectorAll('.modal-tab');
+  const panelPreview = document.getElementById('modal-panel-preview');
+  const panelRaw = document.getElementById('modal-panel-raw');
+
+  var rawFullText = '';
+  var rawBodyText = '';
+
+  function closeModal() {
+    modal.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  function switchTab(tab) {
+    tabs.forEach(function(t) {
+      t.classList.toggle('active', t.dataset.tab === tab);
+    });
+    panelPreview.classList.toggle('hidden', tab !== 'preview');
+    panelRaw.classList.toggle('hidden', tab !== 'raw');
+  }
+
+  tabs.forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      switchTab(this.dataset.tab);
+    });
+  });
+
+  closeBtn.addEventListener('click', closeModal);
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) closeModal();
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeModal();
+  });
+
+  function stripFrontmatter(text) {
+    return text.replace(/^---[\s\S]*?---\n*/, '');
+  }
+
+  copyBtn.addEventListener('click', function() {
+    if (!rawFullText) return;
+    navigator.clipboard.writeText(rawFullText).then(function() {
+      copyBtn.textContent = 'Copied!';
+      setTimeout(function() { copyBtn.textContent = 'Copy'; }, 2000);
+    }).catch(function() {
+      copyBtn.textContent = 'Failed';
+      setTimeout(function() { copyBtn.textContent = 'Copy'; }, 2000);
+    });
+  });
+
+  document.querySelectorAll('.view-skill').forEach(function(link) {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      const path = this.getAttribute('data-path');
+      const card = this.closest('.skill-card');
+      const name = card.querySelector('.name').textContent;
+      const url = RAW_BASE + path;
+
+      // Reset state
+      rawFullText = '';
+      rawBodyText = '';
+      modalTitle.textContent = name;
+      modalMarkdown.innerHTML = '<p style="color:var(--text-muted)">Loading...</p>';
+      modalRaw.textContent = '';
+      copyBtn.textContent = 'Copy';
+      switchTab('preview');
+      modal.classList.add('open');
+      document.body.style.overflow = 'hidden';
+
+      fetch(url)
+        .then(function(res) {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.text();
+        })
+        .then(function(text) {
+          rawFullText = text;
+          rawBodyText = stripFrontmatter(text);
+          var html = marked.parse(rawBodyText, { breaks: true, gfm: true });
+          modalMarkdown.innerHTML = html;
+          modalRaw.textContent = text;
+        })
+        .catch(function(err) {
+          var errMsg = 'Failed to load skill: ' + err.message;
+          modalMarkdown.innerHTML = '<p style="color:var(--text-muted)">' + errMsg + '</p><pre style="color:var(--accent-orange);margin-top:8px">' + url + '</pre>';
+          modalRaw.textContent = errMsg + '\n' + url;
+        });
+    });
+  });
+})();
+</script>
+
+</body>
+</html>
