@@ -130,3 +130,7 @@ npm run seed:verify-clean # garante que fixtures foram desinstaladas e workspace
 Ao adicionar ou alterar skills, atualize este arquivo e o `README.md`.
 
 > Para skills genéricas e reutilizáveis entre projetos, consulte [workflow-skills](https://github.com/jpolvora/workflow-skills).
+> 
+> **Como instalar/atualizar as skills do upstream:**
+> - **Menu Interativo (Instalação):** `npx github:jpolvora/workflow-skills`
+> - **Atualização Automática:** `npx github:jpolvora/workflow-skills update` (use `--include-new` para também instalar novas skills adicionadas ao upstream)
