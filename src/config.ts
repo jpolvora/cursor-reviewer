@@ -226,8 +226,8 @@ const DEFAULT_MODEL = DEFAULT_CURSOR_REVIEWER_MODEL;
 
 const BASE_EXCLUDE = ['*/proxy/*', '*/bin/*', '*/obj/*', '*.md', '*.csproj', 'secret.txt'];
 
-const DEFAULT_MAX_ROUNDS = 5;
-const DEFAULT_SCORE_MIN = 6;
+const DEFAULT_MAX_ROUNDS = 10;
+const DEFAULT_SCORE_MIN = 5;
 const MAX_SCORE_MIN = 10;
 
 /** Lê um inteiro 0–10 de env/CLI; usa fallback se ausente, inválido ou macro ADO. */

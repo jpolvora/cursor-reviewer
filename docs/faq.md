@@ -146,7 +146,7 @@ flowchart TD
 
 ### Quais variáveis de ambiente são mais usadas?
 
-**Resposta:** `CURSOR_API_KEY` (obrig.), `CURSOR_REVIEWER_MODEL`, `AZURE_DEVOPS_EXT_PAT`, `CURSOR_REVIEWER_TARGET_BRANCH`, `CURSOR_REVIEWER_MAX_ROUNDS` (default 5), `CURSOR_REVIEWER_TIMEOUT_MS`, `CURSOR_REVIEWER_REPO_ROOT`, `CURSOR_REVIEWER_STACK` (seleção de stack). Lista completa: [`../README.md`](../README.md).
+**Resposta:** `CURSOR_API_KEY` (obrig.), `CURSOR_REVIEWER_MODEL`, `AZURE_DEVOPS_EXT_PAT`, `CURSOR_REVIEWER_TARGET_BRANCH`, `CURSOR_REVIEWER_MAX_ROUNDS` (default 10), `CURSOR_REVIEWER_TIMEOUT_MS`, `CURSOR_REVIEWER_REPO_ROOT`, `CURSOR_REVIEWER_STACK` (seleção de stack). Lista completa: [`../README.md`](../README.md).
 
 *Evidência:* `src/config.ts`; `test/config.test.ts`.
 
@@ -386,13 +386,13 @@ Caso nenhuma das heurísticas acima identifique uma stack, o runner assume a sta
 
 ### Existe fórmula de cálculo do score?
 
-**Resposta:** **Não.** O agente **atribui** score (0–10) e severity qualitativamente. O TypeScript só aceita **SCORE_MIN–10** para publicação (default **6–10**). Documentação completa: [`score_calc.md`](score_calc.md).
+**Resposta:** **Não.** O agente **atribui** score (0–10) e severity qualitativamente. O TypeScript só aceita **SCORE_MIN–10** para publicação (default **5–10**). Documentação completa: [`score_calc.md`](score_calc.md).
 
-*Evidência:* `src/ado/review-validation.ts` — `DEFAULT_SCORE_MIN = 6`; `src/config.ts` — `SCORE_MIN` / `--score-min`; `skills/SYSTEM_PROMPT.md`.
+*Evidência:* `src/ado/review-validation.ts` — `DEFAULT_SCORE_MIN = 5`; `src/config.ts` — `SCORE_MIN` / `--score-min`; `skills/SYSTEM_PROMPT.md`.
 
 ### Quais scores são publicados?
 
-**Resposta:** Com o default (`SCORE_MIN=6`): 0–5 → não publica; 6–8 → `warning` ou `suggestion`; 9–10 → `critical`. Com `SCORE_MIN` menor (ex.: `4`), scores 4–5 também podem virar thread se passarem no gate completo.
+**Resposta:** Com o default (`SCORE_MIN=5`): 0–4 → não publica; 5–8 → `warning` ou `suggestion`; 9–10 → `critical`. Com `SCORE_MIN` menor (ex.: `4`), scores 4 também podem virar thread se passarem no gate completo.
 
 *Evidência:* `src/ado/review-validation.ts`; [`score_calc.md`](score_calc.md).
 
@@ -428,9 +428,9 @@ Caso nenhuma das heurísticas acima identifique uma stack, o runner assume a sta
 
 ### Como funciona o escalonamento?
 
-**Resposta:** Contador em thread geral (`<!-- reviewer-round-state -->`). `currentRound = rodadasAnteriores + 1`. Se `currentRound > maxRounds` **e** há issues abertas: publica **só** `critical`; suprime novos `warning`/`suggestion`; avisa **revisão humana recomendada**. Default `maxRounds`: **5** (`CURSOR_REVIEWER_MAX_ROUNDS`; `0` desabilita).
+**Resposta:** Contador em thread geral (`<!-- reviewer-round-state -->`). `currentRound = rodadasAnteriores + 1`. Se `currentRound > maxRounds` **e** há issues abertas: publica **só** `critical`; suprime novos `warning`/`suggestion`; avisa **revisão humana recomendada**. Default `maxRounds`: **10** (`CURSOR_REVIEWER_MAX_ROUNDS`; `0` desabilita).
 
-*Evidência:* `src/ado/round-state.ts`; `src/index.ts` ~261–283; `src/config.ts` — `DEFAULT_MAX_ROUNDS = 5`.
+*Evidência:* `src/ado/round-state.ts`; `src/index.ts` ~261–283; `src/config.ts` — `DEFAULT_MAX_ROUNDS = 10`.
 
 ---
 

@@ -29,7 +29,7 @@ describe('isPublishableReview', () => {
 
   it('rejeita score ausente, abaixo do mínimo ou fora do intervalo', () => {
     assert.equal(isPublishableReview(validReview({ score: undefined })), false);
-    assert.equal(isPublishableReview(validReview({ score: 5 })), false);
+    assert.equal(isPublishableReview(validReview({ score: 4 })), false);
     assert.equal(isPublishableReview(validReview({ score: 11 })), false);
   });
 

@@ -2,6 +2,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import type { ReviewerConfig } from '../config.js';
 import type { DiffPromptSection } from '../git/diff-prompt.js';
 import type { LocalReviewGitContext } from '../git/diff.js';
+import { DEFAULT_SCORE_MIN } from '../ado/review-validation.js';
 
 export interface PromptContext {
   workItemContext: string;
@@ -121,13 +122,13 @@ function buildExecutionContext(config: ReviewerConfig, context: PromptContext): 
 }
 
 function buildScoreMinOverrideSection(scoreMin: number): string[] {
-  if (scoreMin === 6) return [];
+  if (scoreMin === DEFAULT_SCORE_MIN) return [];
   return [
     '---',
     '',
     '## Limiar efetivo desta execução',
     '',
-    `**SCORE_MIN=${scoreMin}** (carregado de config). As tabelas acima usam default 6; **prevalecem** estas regras:`,
+    `**SCORE_MIN=${scoreMin}** (carregado de config). As tabelas acima usam default ${DEFAULT_SCORE_MIN}; **prevalecem** estas regras:`,
     `- Omita achados com score < ${scoreMin}.`,
     `- Scores ${scoreMin}–10 com \`fix-code\` ou \`escalate\` podem virar thread.`,
     `- Não use \`resolve-comment\` para scores ≥ ${scoreMin} que devam ser publicados.`,

@@ -81,7 +81,7 @@ Achados que violarem qualquer regra abaixo são descartados automaticamente:
 | `impactPaths` | Array com ao menos um arquivo lido que sustente a investigação. |
 
 ### Rodadas e escalonamento
-O runner rastreia iterações pelo marcador `<!-- reviewer-round-state -->`. Ao exceder `CURSOR_REVIEWER_MAX_ROUNDS` (padrão: 5):
+O runner rastreia iterações pelo marcador `<!-- reviewer-round-state -->`. Ao exceder `CURSOR_REVIEWER_MAX_ROUNDS` (padrão: 10):
 - Suprima achados `warning` e `suggestion`.
 - Publique apenas `critical` (segurança ou quebra de invariantes de negócio).
 - O runner adicionará aviso de handoff para revisão humana na PR.

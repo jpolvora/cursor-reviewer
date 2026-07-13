@@ -32,7 +32,7 @@ function minimalConfig(skillPath: string, systemPromptPath: string): ReviewerCon
     stack: 'ABP/Angular',
     stackPromptPath: null,
     stackSource: 'fallback',
-    scoreMin: 6,
+    scoreMin: 5,
     provider: 'azuredevops' as const,
   };
 }
@@ -161,7 +161,7 @@ describe('buildAgentPrompt', () => {
     assert.ok(prompt.includes('Problema de Query N+1'));
   });
 
-  it('injeta override de SCORE_MIN quando diferente do default 6', () => {
+  it('injeta override de SCORE_MIN quando diferente do default 5', () => {
     const runnerRoot = process.cwd().includes('cursor-reviewer')
       ? process.cwd()
       : `${process.cwd()}/scripts/cursor-reviewer`;
@@ -179,7 +179,7 @@ describe('buildAgentPrompt', () => {
     assert.ok(prompt.includes('score < 4 → omita'));
   });
 
-  it('não injeta override de SCORE_MIN quando default é 6', () => {
+  it('não injeta override de SCORE_MIN quando default é 5', () => {
     const runnerRoot = process.cwd().includes('cursor-reviewer')
       ? process.cwd()
       : `${process.cwd()}/scripts/cursor-reviewer`;

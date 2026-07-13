@@ -178,7 +178,7 @@ describe('loadConfig', () => {
     );
   });
 
-  it('usa maxRounds default 5 e respeita override por env', () => {
+  it('usa maxRounds default 10 e respeita override por env', () => {
     withEnv(
       {
         CURSOR_API_KEY: 'cursor_test',
@@ -186,7 +186,7 @@ describe('loadConfig', () => {
       },
       () => {
         const config = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature']);
-        assert.equal(config.maxRounds, 5);
+        assert.equal(config.maxRounds, 10);
       },
     );
 
@@ -219,7 +219,7 @@ describe('loadConfig', () => {
       },
       () => {
         const config = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature']);
-        assert.equal(config.maxRounds, 5);
+        assert.equal(config.maxRounds, 10);
       },
     );
   });
@@ -524,10 +524,10 @@ describe('loadConfig', () => {
     });
   });
 
-  it('usa SCORE_MIN=6 por padrão', () => {
+  it('usa SCORE_MIN=5 por padrão', () => {
     withEnv({ CURSOR_API_KEY: 'cursor_test', SCORE_MIN: undefined }, () => {
       const config = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature']);
-      assert.equal(config.scoreMin, 6);
+      assert.equal(config.scoreMin, 5);
     });
   });
 
@@ -556,10 +556,10 @@ describe('loadConfig', () => {
     });
   });
 
-  it('ignora SCORE_MIN inválido e usa default 6', () => {
+  it('ignora SCORE_MIN inválido e usa default 5', () => {
     withEnv({ CURSOR_API_KEY: 'cursor_test', SCORE_MIN: 'invalid' }, () => {
       const config = loadConfig(['--dry-run', '--source-branch', 'refs/heads/feature']);
-      assert.equal(config.scoreMin, 6);
+      assert.equal(config.scoreMin, 5);
     });
   });
 });

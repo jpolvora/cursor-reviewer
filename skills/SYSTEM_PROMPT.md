@@ -71,7 +71,7 @@ Retorne **exclusivamente** um único bloco JSON válido (fence com tag `json`). 
 
 | Critério | Regra |
 |----------|--------|
-| `score` | **SCORE_MIN–10** entram em `reviews` (default **6–10**); abaixo do mínimo → omita (não vira thread). O runner injeta o limiar efetivo em `prompt.ts`; omitir `SCORE_MIN` mantém **6**. |
+| `score` | **SCORE_MIN–10** entram em `reviews` (default **5–10**); abaixo do mínimo → omita (não vira thread). O runner injeta o limiar efetivo em `prompt.ts`; omitir `SCORE_MIN` mantém **5**. |
 | `developerAction` | `fix-code` ou `escalate` — nunca `resolve-comment` em reviews novos |
 | `lineNumber` | Inteiro **> 0**, na linha alterada mais responsável |
 | `comment` | Objetivo; sem prefixos de severidade nem blocos de código |
@@ -86,11 +86,11 @@ Retorne **exclusivamente** um único bloco JSON válido (fence com tag `json`). 
 |------------|-------------|----------------|
 | `critical` | Segurança, perda/corrupção de dados, quebra de regra de negócio invariante | 9–10 |
 | `warning` | Bug provável, regressão, contrato quebrado, autorização ausente | 6–8 |
-| `suggestion` | Melhoria com impacto material comprovado (raro — prefira omitir se for nit) | 6–7 |
+| `suggestion` | Melhoria com impacto material comprovado (raro — prefira omitir se for nit) | 5–7 |
 
 | Score | `developerAction` | Thread na PR? |
 |-------|-------------------|---------------|
-| 0–5 | `resolve-comment` | **Não** |
-| 6–8 | `fix-code` | Sim |
+| 0–4 | `resolve-comment` | **Não** |
+| 5–8 | `fix-code` | Sim |
 | 9–10 | `fix-code` | Sim |
-| ≥ 6 + conflito de produto | `escalate` | Sim |
+| ≥ 5 + conflito de produto | `escalate` | Sim |
