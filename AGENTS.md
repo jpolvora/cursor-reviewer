@@ -92,17 +92,54 @@ O runner se autoexclui do diff por padrão (evita loops). Defina `CURSOR_REVIEWE
 
 ## 2. Agente Desenvolvedor
 
+### Stack do Projeto
+
+<details>
+<summary><b>Visualizar detalhes da stack do runner</b></summary>
+
+O projeto é um runner de code review baseado em Node.js e escrito em TypeScript.
+
+- **Backend:** Node 22 (TypeScript)
+  - **Camadas:**
+    - [src/agent](file:///l:/source/cursor-reviewer/src/agent): Integrações com a API do Composer e montagem de prompt.
+    - [src/ado](file:///l:/source/cursor-reviewer/src/ado): Revisões, comentários e validações no ADO.
+    - [src/git](file:///l:/source/cursor-reviewer/src/git): Extração e normalização de diffs do Git.
+- **Testes:** [test/](file:///l:/source/cursor-reviewer/test) (test runner do Node.js utilizando `tsx --test`).
+
+</details>
+
+### Roteamento e Indexação (Routing & Indexing)
+
+O runner orquestra regras, plataformas e stacks utilizando as seguintes lógicas de indexação e roteamento:
+
+<details>
+<summary><b>Visualizar lógica de roteamento de provedores, regras e stacks</b></summary>
+
+1. **Roteamento de Provedor (Platform Provider Routing):**
+   - Resolvido pela função `getProvider()` em [src/provider/index.ts](file:///l:/source/cursor-reviewer/src/provider/index.ts).
+   - Direciona chamadas de API (PRs, comentários, threads) dinamicamente para `AdoProvider` ou `GithubProvider`.
+
+2. **Indexação de Rules (Rule Indexing):**
+   - Executada por `buildRulesMap()` em [src/project/rules-map.ts](file:///l:/source/cursor-reviewer/src/project/rules-map.ts).
+   - Lê as regras de `.cursor/rules/*.mdc`, faz o parse do frontmatter YAML e mapeia quais regras coincidem (via glob matching) com os arquivos alterados da PR para incluí-las no contexto do agente.
+
+3. **Detecção e Roteamento de Stack (Stack Routing):**
+   - Resolvido em [src/config.ts](file:///l:/source/cursor-reviewer/src/config.ts) e autodetectado na raiz do repositório alvo.
+   - Associa extensões de arquivos e arquivos chave (como `tsconfig.json`, `package.json`, `.sln`/`.csproj`, `artisan`) para carregar o prompt de recomendações da stack correspondente em [skills/stacks/](file:///l:/source/cursor-reviewer/skills/stacks).
+
+</details>
+
 ### Arquitetura
 
 | Arquivo/Pasta | Responsabilidade |
 |---|---|
-| `src/index.ts` | Ponto de entrada: prepara workspace, coleta contexto de PR, dispara agente, posta comentários. |
-| `src/config.ts` | Argumentos CLI e variáveis de ambiente. |
-| `src/agent/stream.ts` | **Único acoplamento ao `@cursor/sdk`.** Streaming, timeout, sandbox, token usage. |
-| `src/agent/runner.ts` | Constrói o prompt e chama `stream.ts`. |
-| `src/provider/` | Interface `PlatformProvider` + implementações `AdoProvider` e `GithubProvider`. |
-| `src/ado/` | Gate (`gate.ts`), validação (`review-validation.ts`), formatação (`format-thread.ts`), rodadas (`round-state.ts`). |
-| `skills/stacks/` | Recomendações por stack em Markdown. |
+| [src/index.ts](file:///l:/source/cursor-reviewer/src/index.ts) | Ponto de entrada: prepara workspace, coleta contexto de PR, dispara agente, posta comentários. |
+| [src/config.ts](file:///l:/source/cursor-reviewer/src/config.ts) | Argumentos CLI e variáveis de ambiente. |
+| [src/agent/stream.ts](file:///l:/source/cursor-reviewer/src/agent/stream.ts) | **Único acoplamento ao @cursor/sdk.** Streaming, timeout, sandbox, token usage. |
+| [src/agent/runner.ts](file:///l:/source/cursor-reviewer/src/agent/runner.ts) | Constrói o prompt e chama `stream.ts`. |
+| [src/provider/](file:///l:/source/cursor-reviewer/src/provider) | Interface `PlatformProvider` + implementações `AdoProvider` e `GithubProvider`. |
+| [src/ado/](file:///l:/source/cursor-reviewer/src/ado) | Gate (`gate.ts`), validação ([review-validation.ts](file:///l:/source/cursor-reviewer/src/ado/review-validation.ts)), formatação (`format-thread.ts`), rodadas ([round-state.ts](file:///l:/source/cursor-reviewer/src/ado/round-state.ts)). |
+| [skills/stacks/](file:///l:/source/cursor-reviewer/skills/stacks) | Recomendações por stack em Markdown. |
 
 ### Comandos de validação (obrigatórios antes de finalizar)
 
@@ -115,10 +152,15 @@ npm run seed:verify-clean # garante que fixtures foram desinstaladas e workspace
 ### Boas práticas
 
 - **Provedores:** toda nova feature deve funcionar em Azure DevOps **e** GitHub. Markdown, GraphQL/REST e sugestões interativas diferem entre plataformas.
-- **Stacks:** ao adicionar/modificar stacks, mantenha compatibilidade com o fallback `ABP/Angular` e cubra a autodetecção em `test/config.test.ts`.
-- **Sincronização de docs:** ao alterar `review-validation.ts`, `round-state.ts`, lógica de diff, stacks suportadas ou prompts do sistema, atualize este `AGENTS.md`, o `README.md` e `docs/` em conjunto.
+- **Stacks:** ao adicionar/modificar stacks, mantenha compatibilidade com o fallback `ABP/Angular` e cubra a autodetecção em [test/config.test.ts](file:///l:/source/cursor-reviewer/test/config.test.ts).
+- **Sincronização de docs:** ao alterar [review-validation.ts](file:///l:/source/cursor-reviewer/src/ado/review-validation.ts), [round-state.ts](file:///l:/source/cursor-reviewer/src/ado/round-state.ts), lógica de diff, stacks suportadas ou prompts do sistema, atualize este [AGENTS.md](file:///l:/source/cursor-reviewer/AGENTS.md), o [README.md](file:///l:/source/cursor-reviewer/README.md) e `docs/` em conjunto.
 
 ### Skills locais (`.agents/skills/`)
+
+O repositório possui um conjunto de skills locais utilizadas pelo agente durante o desenvolvimento e auditoria de código.
+
+<details>
+<summary><b>Visualizar tabela de skills e guias de instalação/atualização</b></summary>
 
 | Skill | Uso |
 |---|---|
@@ -127,10 +169,12 @@ npm run seed:verify-clean # garante que fixtures foram desinstaladas e workspace
 | `solve-pr` | Busca threads ativas no GitHub, implementa correções, faz commit/push e aguarda o runner. |
 | `spec-to-pr` | Orquestrador de fluxo Spec → PR (FSM) que conduz o ciclo de vida completo de desenvolvimento. |
 
-Ao adicionar ou alterar skills, atualize este arquivo e o `README.md`.
+Ao adicionar ou alterar skills, atualize este arquivo e o [README.md](file:///l:/source/cursor-reviewer/README.md).
 
 > Para skills genéricas e reutilizáveis entre projetos, consulte [workflow-skills](https://github.com/jpolvora/workflow-skills).
 > 
 > **Como instalar/atualizar as skills do upstream:**
 > - **Menu Interativo (Instalação):** `npx github:jpolvora/workflow-skills`
 > - **Atualização Automática:** `npx github:jpolvora/workflow-skills update` (use `--include-new` para também instalar novas skills adicionadas ao upstream)
+
+</details>

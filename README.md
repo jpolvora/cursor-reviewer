@@ -1,5 +1,7 @@
 # Cursor Reviewer — Code Review Agêntico (Review-Only)
 
+> 🌐 **Website Oficial e Catálogo de Skills:** [jpolvora.github.io/cursor-reviewer](https://jpolvora.github.io/cursor-reviewer/)
+
 O **Cursor Reviewer** é um revisor de Pull Requests automatizado e portável para **Azure DevOps** e **GitHub**. Ele utiliza o [**Cursor SDK**](https://cursor.com/docs/sdk/typescript) (`@cursor/sdk`) em modo agêntico para realizar análises profundas diretamente no diff do repositório, guiado pelo harness do projeto (regras do `.cursor/rules/`, `AGENTS.md` e instruções de code-review). 
 
 O revisor atua **exclusivamente em modo de leitura (review-only)**, publicando threads acionáveis nas linhas afetadas da PR. Ele **não altera arquivos no repositório**. A decisão final de aplicar a correção sugerida ou encerrar a thread é sempre do desenvolvedor.
