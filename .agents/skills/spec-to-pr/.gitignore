@@ -1,0 +1,6 @@
+# Do not commit project-specific config — it may contain paths, org names, and local settings.
+# Copy config.json.example to config.json and fill in your project details.
+config.json
+
+# Never commit local overrides
+config.local.json

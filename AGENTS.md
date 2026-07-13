@@ -125,6 +125,7 @@ npm run seed:verify-clean # garante que fixtures foram desinstaladas e workspace
 | `code-review-self` | Review agêntico somente-leitura via IDE/harness, sem acionar o `@cursor/sdk`. |
 | `megabrain` | Review iterativo com threads numeradas (`[Thread #N]`); acompanha correções entre rodadas. |
 | `solve-pr` | Busca threads ativas no GitHub, implementa correções, faz commit/push e aguarda o runner. |
+| `spec-to-pr` | Orquestrador de fluxo Spec → PR (FSM) que conduz o ciclo de vida completo de desenvolvimento. |
 
 Ao adicionar ou alterar skills, atualize este arquivo e o `README.md`.
 

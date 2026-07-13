@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jpolvora/workflow-skills/spec-to-pr/config.schema.json",
+  "title": "spec-to-pr project config",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["project", "verification", "plans"],
+  "properties": {
+    "toolsFile": { "type": "string", "default": "tools.md" },
+    "project": {
+      "type": "object",
+      "required": ["name", "baseBranch"],
+      "properties": {
+        "name": { "type": "string" },
+        "org": { "type": "string" },
+        "repoUrl": { "type": "string" },
+        "baseBranch": { "type": "string", "description": "PR target branch (main or master)" },
+        "workingBranch": {
+          "type": "string",
+          "default": "develop",
+          "description": "Active delivery branch used by ship-pr / Step 13"
+        },
+        "gitRemote": { "type": "string", "default": "origin" }
+      }
+    },
+    "stack": { "type": "object" },
+    "domain": { "type": "object" },
+    "issueTrackers": { "type": "object" },
+    "verification": {
+      "type": "object",
+      "properties": {
+        "backendBuild": { "type": "string" },
+        "backendTest": { "type": "string" },
+        "backendFormat": { "type": "string" },
+        "frontendBuild": { "type": "string" },
+        "frontendTest": { "type": "string" },
+        "migrationsAdd": { "type": "string" },
+        "migrationsApply": { "type": "string" }
+      }
+    },
+    "dagThresholds": {
+      "type": "object",
+      "properties": {
+        "maxImplementationSteps": { "type": "integer", "minimum": 1 },
+        "maxExpectedFiles": { "type": "integer", "minimum": 1 },
+        "maxLayers": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "properties": {
+        "autoMode": { "type": "boolean" },
+        "dryRun": { "type": "boolean" },
+        "skipIntegration": { "type": "boolean" },
+        "skipTests": { "type": "boolean" },
+        "fullMode": { "type": "boolean" }
+      }
+    },
+    "plans": {
+      "type": "object",
+      "required": ["dir"],
+      "properties": {
+        "dir": {
+          "type": "string",
+          "default": ".cursor/plans",
+          "description": "Root for {us-dir} = {dir}/{slug}/"
+        },
+        "specsDir": {
+          "type": "string",
+          "default": "specs",
+          "description": "Optional human-facing mirror of specs; canonical spec is always under us-dir"
+        },
+        "worktreesDir": {
+          "type": "string",
+          "default": ".cursor/plans/{slug}/worktrees"
+        }
+      }
+    },
+    "rules": { "type": "object" },
+    "invariants": { "type": "object" }
+  }
+}
