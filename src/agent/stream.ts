@@ -2,6 +2,7 @@ import { Agent, CursorAgentError } from '@cursor/sdk';
 import type { LocalAgentOptions, Run } from '@cursor/sdk';
 import { logAgentPromptBeforeSend } from './log-prompt.js';
 import { resolveAgentModelSelection } from './model.js';
+import { createAgentStreamLog } from './stream-log.js';
 import {
   formatTokenUsageSummary,
   TokenUsageAccumulator,
@@ -126,50 +127,30 @@ export async function runAgentStream(
       const runId = run.id ?? 'pending';
       logger.info(`Run ID: ${runId}`);
 
-      let lastType: 'thinking' | 'assistant' | 'other' = 'other';
+      const streamLog = createAgentStreamLog();
 
       for await (const event of run.stream()) {
         switch (event.type) {
           case 'assistant':
             for (const block of event.message.content) {
               if (block.type === 'text') {
-                if (lastType !== 'assistant') {
-                  if (lastType !== 'other') {
-                    process.stdout.write('\n');
-                  }
-                  process.stdout.write(`[${new Date().toISOString()}] [INFO] [assistant] `);
-                  lastType = 'assistant';
-                }
-                process.stdout.write(block.text);
+                streamLog.write('assistant', block.text);
                 fullText += block.text;
               }
             }
             break;
           case 'tool_call':
-            if (lastType !== 'other') {
-              process.stdout.write('\n');
-              lastType = 'other';
-            }
+            streamLog.endChannel();
             logger.info(
               `[tool] ${event.name} — ${event.status}` +
                 (event.status === 'completed' ? '' : ` (${truncate(JSON.stringify(event.args), 120)})`),
             );
             break;
           case 'thinking':
-            if (lastType !== 'thinking') {
-              if (lastType !== 'other') {
-                process.stdout.write('\n');
-              }
-              process.stdout.write(`[${new Date().toISOString()}] [INFO] [thinking] `);
-              lastType = 'thinking';
-            }
-            process.stdout.write(event.text);
+            streamLog.write('thinking', event.text);
             break;
           case 'status':
-            if (lastType !== 'other') {
-              process.stdout.write('\n');
-              lastType = 'other';
-            }
+            streamLog.endChannel();
             logger.info(`[status] ${event.status}${event.message ? `: ${event.message}` : ''}`);
             break;
           case 'system':
@@ -180,9 +161,7 @@ export async function runAgentStream(
         }
       }
 
-      if (lastType !== 'other') {
-        process.stdout.write('\n');
-      }
+      streamLog.flush();
 
       const result = await run.wait();
 
