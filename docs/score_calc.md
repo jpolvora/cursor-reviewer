@@ -10,7 +10,7 @@
 O Cursor Reviewer **não calcula score por fórmula** (`score = f(linhas, arquivos, …)`). O fluxo é:
 
 1. **Agente LLM** — após provar o achado com tools, **atribui** `score`, `severity` e `developerAction` conforme rubricas dos prompts.
-2. **TypeScript** — **valida** se o review é publicável (`isPublishableReview`); descarta score abaixo de `SCORE_MIN` (default **6**) ou contrato inválido.
+2. **TypeScript** — **valida** se o review é publicável (`isPublishableReview`); descarta score abaixo de `SCORE_MIN` (default **5**) ou contrato inválido.
 
 ```mermaid
 flowchart TD
@@ -23,18 +23,18 @@ flowchart TD
     F -->|Sim| H[Thread na PR com label 🛑 / ⚠️ / 💡]
 ```
 
-**Conclusão prática:** o score é uma **calibração qualitativa** do agente, não um número derivado automaticamente do código. O runner garante apenas o **intervalo publicável** (`SCORE_MIN`–10, default **6**–10) e a **integridade do contrato JSON**.
+**Conclusão prática:** o score é uma **calibração qualitativa** do agente, não um número derivado automaticamente do código. O runner garante apenas o **intervalo publicável** (`SCORE_MIN`–10, default **5**–10) e a **integridade do contrato JSON**.
 
 ### `SCORE_MIN` (configurável, opt-in)
 
 | Canal | Exemplo | Default se omitido |
 |-------|---------|-------------------|
-| Env | `SCORE_MIN=4` | `6` |
-| CLI | `--score-min 4` | `6` |
+| Env | `SCORE_MIN=4` | `5` |
+| CLI | `--score-min 4` | `5` |
 
-**Precedência:** `--score-min` > `SCORE_MIN` > `6`.
+**Precedência:** `--score-min` > `SCORE_MIN` > `5`.
 
-**Compatibilidade:** pipelines e invocações existentes que **não** definem `SCORE_MIN` nem `--score-min` mantêm o limiar histórico **6** — sem breaking change. Só defina `SCORE_MIN` quando quiser abaixar (ex.: `4`) ou subir o rigor do que vira thread acionável.
+**Compatibilidade:** pipelines e invocações existentes que **não** definem `SCORE_MIN` nem `--score-min` mantêm o limiar histórico **5** — sem breaking change. Só defina `SCORE_MIN` quando quiser abaixar (ex.: `4`) ou subir o rigor do que vira thread acionável.
 
 O prompt do agente (`src/agent/prompt.ts`) e o gate TypeScript (`review-validation.ts`) usam o mesmo valor carregado em `config.scoreMin`.
 
@@ -44,12 +44,12 @@ O prompt do agente (`src/agent/prompt.ts`) e o gate TypeScript (`review-validati
 
 | Camada | Arquivo | Papel |
 |--------|---------|-------|
-| Contrato da pipeline | `skills/SYSTEM_PROMPT.md` | Tabelas score × severity × `developerAction`; filtro orientativo (gate efetivo: `SCORE_MIN`, default 6) |
+| Contrato da pipeline | `skills/SYSTEM_PROMPT.md` | Tabelas score × severity × `developerAction`; filtro orientativo (gate efetivo: `SCORE_MIN`, default 5) |
 | Orquestração do prompt | `src/agent/prompt.ts` | Fases 1–2; instrução de classificar conforme System Prompt; injeta `SCORE_MIN` no filtro |
 | Critérios do projeto | `.agents/skills/code-review/SKILL.md` | Brechas, checklist ABP/Angular, calibração 6–8 vs 9–10 |
 | Modelo compartilhado | `.agents/skills/fix-pr/SKILL.md` | Escala 0–10 e eixos de julgamento (fix-pr ↔ reviewer) |
-| Configuração | `src/config.ts` | `SCORE_MIN` (env) / `--score-min` (CLI); default `6` |
-| Gate programático | `src/ado/review-validation.ts` | `DEFAULT_SCORE_MIN = 6`, `MAX_PUBLISHABLE_SCORE = 10`; `isPublishableReview(review, scoreMin)` |
+| Configuração | `src/config.ts` | `SCORE_MIN` (env) / `--score-min` (CLI); default `5` |
+| Gate programático | `src/ado/review-validation.ts` | `DEFAULT_SCORE_MIN = 5`, `MAX_PUBLISHABLE_SCORE = 10`; `isPublishableReview(review, scoreMin)` |
 | Parser | `src/parser/review-response.ts` | Normaliza score; severidade inválida → default `warning` |
 | Formatação ADO | `src/ado/format-thread.ts` | Prefixo `🛑 CRITICAL` / `⚠️ WARNING` / `💡 SUGGESTION` |
 | Escalonamento | `src/ado/round-state.ts` | Após `MAX_ROUNDS`, publica só `critical` |
@@ -116,8 +116,9 @@ O agente usa uma escala **ordinal**. Não há pesos numéricos por dimensão —
 | Score | Faixa | Urgência | Significado | Exemplos típicos | Publicável? |
 |-------|-------|----------|-------------|------------------|-------------|
 | **0–2** | Descartável | Baixa | Nit, estilo, preferência, cosmético | Formatação, renomeação estética, layout Tailwind sem impacto funcional | **Não** |
-| **3–5** | Descartável | Baixa | Risco teórico ou improvável; já coberto | Padrão “poderia ser melhor” sem falha executável; invariante/teste existente cobre o cenário | **Não** |
-| **6** | Limiar | Alta (mínima) | Problema real com impacto material, mais localizado | Melhoria com impacto comprovado; edge case específico | **Sim** |
+| **3–4** | Descartável | Baixa | Risco teórico ou improvável; já coberto | Padrão “poderia ser melhor” sem falha executável; invariante/teste existente cobre o cenário | **Não** |
+| **5** | Limiar | Alta (mínima) | Problema real com impacto material, mais localizado | Melhoria com impacto comprovado; edge case específico | **Sim** |
+| **6** | Publicável | Alta | Bug leve com impacto funcional secundário | Validação secundária ausente, tratamento incorreto de exceção não crítica | **Sim** |
 | **7** | Publicável | Alta | Bug provável ou regressão em cenário concreto | Validação frágil, enum comparado de forma frágil, contrato parcialmente quebrado | **Sim** |
 | **8** | Publicável | Alta | Bug provável com impacto claro | `[Authorize]` ausente, `.Result`/`.Wait()` em async, `atob` sem validar base64, `*abpPermission` ausente, N+1 provável | **Sim** |
 | **9** | Publicável | Crítica | Falha grave com alto impacto operacional | Regra de negócio invariante violada, perda/corrupção de dados, critério de aceite evidente não implementado | **Sim** |
@@ -128,8 +129,8 @@ O agente usa uma escala **ordinal**. Não há pesos numéricos por dimensão —
 | Score | Resumo |
 |-------|--------|
 | 0–2 | Nit / estilo |
-| 3–5 | Risco baixo ou warning improvável |
-| 6–8 | Bug provável, regressão, contrato quebrado |
+| 3–4 | Risco baixo ou warning improvável |
+| 5–8 | Bug provável, regressão, contrato quebrado |
 | 9–10 | Crítico — segurança, dados, contrato, regra invariante |
 
 ---
@@ -142,11 +143,9 @@ A **severidade** (`critical` | `warning` | `suggestion`) é atribuída pelo agen
 
 Conforme `skills/SYSTEM_PROMPT.md`:
 
-| `severity` | Quando usar | `score` típico | Label na thread ADO |
-|------------|-------------|----------------|---------------------|
 | **`critical`** | Segurança; perda ou corrupção de dados; quebra de regra de negócio **invariante** | **9–10** | `🛑 **CRITICAL:**` |
-| **`warning`** | Bug provável; regressão; contrato quebrado; autorização/permissão ausente | **6–8** | `⚠️ **WARNING:**` |
-| **`suggestion`** | Melhoria com impacto material comprovado (**raro** — omitir se for nit) | **6–7** | `💡 **SUGGESTION:**` |
+| **`warning`** | Bug provável; regressão; contrato quebrado; autorização/permissão ausente | **5–8** | `⚠️ **WARNING:**` |
+| **`suggestion`** | Melhoria com impacto material comprovado (**raro** — omitir se for nit) | **5–7** | `💡 **SUGGESTION:**` |
 
 ### Regras adicionais por camada
 
@@ -184,10 +183,10 @@ Mapeamento orientativo severidade ↔ tipo de defeito:
 
 | Score | `developerAction` | Thread na PR? | Significado para o dev |
 |-------|-------------------|---------------|------------------------|
-| 0–5 | `resolve-comment` | **Não** | Classificação interna do agente — item descartado pelo gate |
-| 6–8 | `fix-code` | **Sim** | Corrigir em código |
+| 0–4 | `resolve-comment` | **Não** | Classificação interna do agente — item descartado pelo gate |
+| 5–8 | `fix-code` | **Sim** | Corrigir em código |
 | 9–10 | `fix-code` | **Sim** | Corrigir em código (prioridade alta) |
-| ≥ 6 + conflito de produto | `escalate` | **Sim** | Decisão humana (WI/plano ambíguos) |
+| ≥ 5 + conflito de produto | `escalate` | **Sim** | Decisão humana (WI/plano ambíguos) |
 
 > **`resolve-comment`** no contrato do reviewer significa “não publicar thread”. Reviews novos **nunca** devem usar `resolve-comment` com intenção de publicar — o gate rejeita.
 
@@ -198,8 +197,8 @@ O TypeScript **não** reescreve severity com base no score. A calibração é re
 | Combinação esperada | Combinação atípica (aceita se score ≥ SCORE_MIN) |
 |---------------------|-------------------------------------------|
 | score 9–10 + `critical` | score 9 + `warning` (runner aceita) |
-| score 6–8 + `warning` | score 8 + `critical` (runner aceita) |
-| score 6–7 + `suggestion` | score 7 + `critical` (runner aceita) |
+| score 5–8 + `warning` | score 8 + `critical` (runner aceita) |
+| score 5–7 + `suggestion` | score 7 + `critical` (runner aceita) |
 
 ---
 
@@ -208,7 +207,7 @@ O TypeScript **não** reescreve severity com base no score. A calibração é re
 Implementação em `src/ado/review-validation.ts` + configuração em `src/config.ts`:
 
 ```typescript
-export const DEFAULT_SCORE_MIN = 6; // usado quando SCORE_MIN / --score-min omitidos
+export const DEFAULT_SCORE_MIN = 5; // usado quando SCORE_MIN / --score-min omitidos
 export const MAX_PUBLISHABLE_SCORE = 10;
 
 // isPublishableReview(review, scoreMin = DEFAULT_SCORE_MIN)
@@ -218,7 +217,7 @@ export const MAX_PUBLISHABLE_SCORE = 10;
 
 | Campo | Regra |
 |-------|-------|
-| `score` | Número finito, **SCORE_MIN ≤ score ≤ 10** (default: **6 ≤ score ≤ 10**) |
+| `score` | Número finito, **SCORE_MIN ≤ score ≤ 10** (default: **5 ≤ score ≤ 10**) |
 | `fileName` | Não vazio |
 | `lineNumber` | Inteiro **> 0** |
 | `severity` | `critical` \| `warning` \| `suggestion` |
@@ -232,7 +231,7 @@ Reviews que falham são descartados em `parseCodeReviewResponse` **antes** de PO
 
 > Policy: N review(s) descartado(s) — score < SCORE_MIN, campos obrigatórios ausentes ou contrato inválido.
 
-(Com o default, equivale a `score < 6`.)
+(Com o default, equivale a `score < 5`.)
 
 ### Normalização no parser
 
@@ -250,7 +249,7 @@ Em `src/parser/review-response.ts`:
 | **Corpo da thread** | `format-thread.ts` — prefixo por severity + bloco `<details>` com `Score: N/10` |
 | **Pipeline Azure DevOps** | `pipeline-logging.ts` — `critical` → `##vso[task.logissue type=error]`; demais → `type=warning` |
 | **Resumo positivo** | Se houver review `critical`, `reviewSummary` é **ignorado** |
-| **Escalonamento** | `currentRound > CURSOR_REVIEWER_MAX_ROUNDS` (default 3) + issues abertas → publica **só** `critical`; suprime `warning`/`suggestion` novos |
+| **Escalonamento** | `currentRound > CURSOR_REVIEWER_MAX_ROUNDS` (default 10) + issues abertas → publica **só** `critical`; suprime `warning`/`suggestion` novos |
 | **Dedup** | Chave `arquivoNormalizado\|line:N` — mesma linha não gera thread duplicada |
 
 ---
@@ -279,7 +278,7 @@ Regras explícitas do `SYSTEM_PROMPT.md`:
 | Achado **comprovado** que passa no gate | **Publicar** — não omitir para “não poluir” |
 | PR sem issues novas | `"reviews": []` + `reviewSummary` positivo (cita título/descrição da **PR**, não de WI/Task) |
 
-Objetivo anti-loop: **completude na mesma rodada** — listar todos os achados materiais de uma vez (score ≥ `SCORE_MIN`, default 6), não reservar para rodadas futuras.
+Objetivo anti-loop: **completude na mesma rodada** — listar todos os achados materiais de uma vez (score ≥ `SCORE_MIN`, default 5), não reservar para rodadas futuras.
 
 ---
 
@@ -291,17 +290,17 @@ Objetivo anti-loop: **completude na mesma rodada** — listar todos os achados m
 
 ### O runner corrige score ou severity inconsistentes?
 
-**Não.** Só valida intervalo `SCORE_MIN`–10 (default 6–10) e campos obrigatórios. Severidade inválida vira `warning` no parser; score fora do intervalo descarta o item.
+**Não.** Só valida intervalo `SCORE_MIN`–10 (default 5–10) e campos obrigatórios. Severidade inválida vira `warning` no parser; score fora do intervalo descarta o item.
 
 ### Posso mudar o limiar sem quebrar pipelines antigas?
 
-**Sim.** `SCORE_MIN` e `--score-min` são **opcionais**. Omitir ambos mantém default **6** — comportamento idêntico às versões anteriores do runner.
+**Sim.** `SCORE_MIN` e `--score-min` são **opcionais**. Omitir ambos mantém default **5** — comportamento idêntico às versões anteriores do runner.
 
-### Score 6 vs 8 vs 10 — qual a diferença prática?
+### Score 5 vs 8 vs 10 — qual a diferença prática?
 
 | Score | Para o desenvolvedor |
 |-------|------------------------|
-| 6 | Corrigir — impacto material, menor urgência relativa |
+| 5 | Corrigir — impacto material, menor urgência relativa |
 | 8 | Corrigir — bug provável ou falha de contrato clara |
 | 10 | Corrigir com prioridade — risco de segurança, dados ou merge blocker |
 
@@ -309,7 +308,7 @@ Todos geram thread; a pipeline **não bloqueia** a build por score (exit 0).
 
 ### Por que scores abaixo do mínimo não viram thread?
 
-Com o default `SCORE_MIN=6`, scores 0–5 não publicam — evita ruído (nits, estilo, alertas não comprovados). Ao **abaixar** `SCORE_MIN` (ex.: `4`), issues com score 4–5 passam a virar thread; ao **omitir** a variável, nada muda em relação ao comportamento histórico.
+Com o default `SCORE_MIN=5`, scores 0–4 não publicam — evita ruído (nits, estilo, alertas não comprovados). Ao **abaixar** `SCORE_MIN` (ex.: `4`), issues com score 4 passam a virar thread; ao **omitir** a variável, nada muda em relação ao comportamento histórico.
 
 ---
 

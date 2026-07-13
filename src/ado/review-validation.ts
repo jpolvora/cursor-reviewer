@@ -3,7 +3,7 @@ import type { CodeReviewItem, DeveloperAction, ReviewSeverity } from './types.js
 const VALID_SEVERITIES = new Set<ReviewSeverity>(['critical', 'warning', 'suggestion']);
 const VALID_ACTIONS = new Set<DeveloperAction>(['fix-code', 'resolve-comment', 'escalate']);
 
-export const DEFAULT_SCORE_MIN = 6;
+export const DEFAULT_SCORE_MIN = 5;
 /** @deprecated Prefer {@link DEFAULT_SCORE_MIN} */
 export const MIN_PUBLISHABLE_SCORE = DEFAULT_SCORE_MIN;
 export const MAX_PUBLISHABLE_SCORE = 10;

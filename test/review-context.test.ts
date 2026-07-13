@@ -110,7 +110,7 @@ describe('getPullRequestReviewContext', () => {
           lineNumber: 10,
           severity: 'warning',
           comment: 'low score',
-          score: 5,
+          score: 4,
         }),
         validReview({
           fileName: '/src/High.cs',
