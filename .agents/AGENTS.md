@@ -64,6 +64,7 @@ Standalone invoke: `/check-harness` or `@check-harness` (optional `--dry-run` fo
 |-------|------|------|
 | `spec-to-pr` | `skills/spec-to-pr/SKILL.md` | Spec → plan → implement → verify → review → integrate → PR (FSM F0–F6, steps 0–13) |
 | `spec-to-pr-lite` | `skills/spec-to-pr-lite/SKILL.md` | Fast, sequential Plan → implement → review → ship PR (steps 1–5) |
+| `solve-pr` | `skills/solve-pr/SKILL.md` | Auto-apply PR review fixes, commit/push, and wait for next review |
 
 ### Dual-Mode Execution & Compatibility
 
@@ -126,6 +127,8 @@ Both workflows co-exist cleanly in **dual mode** inside consumer projects:
 | `domain-review` | `skills/domain-review/SKILL.md` | Domain / bounded-context review |
 | `multi-domain-review` | `skills/multi-domain-review/SKILL.md` | Batch review of multiple domains |
 | `secrets-leak-review` | `skills/secrets-leak-review/SKILL.md` | Secrets / PII / credential leak scan |
+| `code-review-self` | `skills/code-review-self/SKILL.md` | Local code review of the runner codebase mimicking `src/index.ts` without SDK |
+| `megabrain` | `skills/megabrain/SKILL.md` | Reviewer with persistent threads across review rounds |
 
 ### Utility & meta (under `shared/`)
 
@@ -152,8 +155,11 @@ Both workflows co-exist cleanly in **dual mode** inside consumer projects:
 | Implement / fix code | `04-implement-tasks` |
 | Verify against plan | `05-verify-plan` |
 | Local code review | `06-code-review` |
+| Local dry-run code review without SDK | `code-review-self` |
+| Iterative code review with persistent threads | `megabrain` |
 | Integration tests pre-PR | `07-integration-validation` |
 | Fix PR review threads | `08-fix-pr` / `09-goal-fix-pr` |
+| Fix PR review comments automatically | `solve-pr` |
 | Ship / merge PR | `11-ship-pr` |
 | GitHub issue→spec or GitHub PR ops | `github-provider` |
 | Azure DevOps work item→spec or ADO PR ops | `azure-devops-provider` |
