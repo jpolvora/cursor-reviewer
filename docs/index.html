@@ -33,7 +33,7 @@
   <h1>Cursor <span>Reviewer</span></h1>
   <p>An automated, agentic code review runner for Pull Requests. It analyzes code diffs via <strong>Cursor SDK</strong>, evaluates domain/pipeline rules, and posts surgical thread suggestions directly to your PR on GitHub or Azure DevOps.</p>
   <div class="badges">
-    <span class="badge">25 skills</span>
+    <span class="badge">31 skills</span>
     <span class="badge">Node.js 22.13+</span>
     <span class="badge">GitHub & ADO</span>
     <span class="badge">MIT License</span>
@@ -117,7 +117,7 @@
         <div class="desc">Receives a high-level feature description and drafts a canonical step-00-{slug}.spec.md specification.</div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
           <a class="view-skill" href="#" data-path=".agents/skills/00-write-spec/SKILL.md">View skill</a>
-          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v3.1</span>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v3.2</span>
         </div>
       </div>
       <div class="skill-card" data-path=".agents/skills/01-write-plan/SKILL.md">
@@ -202,10 +202,10 @@
       </div>
       <div class="skill-card" data-path=".agents/skills/11-ship-pr/SKILL.md">
         <div class="name">11-ship-pr</div>
-        <div class="desc">End-to-end delivery — verify branch state, commit, push, create PR workingBranch → baseBranch, run goal-fix-pr loops, and merge.</div>
+        <div class="desc">End-to-end delivery — verify branch state, commit, push, create PR workingBranch → baseBranch via providers.scm, run goal-fix-pr loops, and merge.</div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
           <a class="view-skill" href="#" data-path=".agents/skills/11-ship-pr/SKILL.md">View skill</a>
-          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.2</span>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.3</span>
         </div>
       </div>
       <div class="skill-card" data-path=".agents/skills/spec-to-pr/SKILL.md">
@@ -299,9 +299,33 @@
   </div>
   <!-- Category: Utilidades & Frontend -->
   <div class="layer">
-    <h3>Utilidades & Frontend <span class="count">(3)</span></h3>
+    <h3>Utilidades & Frontend <span class="count">(9)</span></h3>
     <p class="layer-desc" style="color:var(--text-muted);font-size:0.875rem;margin-bottom:16px;">Diretrizes gerais de design, boas práticas e geradores de novos agentes.</p>
     <div class="skill-grid">
+      <div class="skill-card" data-path=".agents/skills/azure-devops-provider/SKILL.md">
+        <div class="name">azure-devops-provider</div>
+        <div class="desc">Azure DevOps provider for spec-to-pr — work item→spec, PAT auth, PR create/threads/merge via az CLI and/or REST plus provider scripts. Use when providers.active or providers.scm is azure-devops, or when invoking /azure-devops-provider standalone.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/azure-devops-provider/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.0</span>
+        </div>
+      </div>
+      <div class="skill-card" data-path=".agents/skills/check-harness/SKILL.md">
+        <div class="name">check-harness</div>
+        <div class="desc">Audit harness integrity — validates AGENTS.md routing, detects broken links, orphan skills/rules, absolute paths, redundancy, and portability issues. Read-only scan → correction plan → apply with approval.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/check-harness/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v3.1-generic</span>
+        </div>
+      </div>
+      <div class="skill-card" data-path=".agents/skills/check-workflows/SKILL.md">
+        <div class="name">check-workflows</div>
+        <div class="desc">Auto-check workflow processes (spec-to-pr & spec-to-pr-lite) for step continuity, config sharing, state isolation, compatibility, and provider references. Use when validating orchestrators, adding steps, or testing workflow changes.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/check-workflows/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.0</span>
+        </div>
+      </div>
       <div class="skill-card" data-path=".agents/skills/taste-skill/SKILL.md">
         <div class="name">design-taste-frontend</div>
         <div class="desc">Anti-slop frontend skill for landing pages, portfolios, and redesigns. The agent reads the brief, infers the right design direction, and ships interfaces that do not look templated. Real design systems when applicable, audit-first on redesigns, strict pre-flight check.</div>
@@ -310,11 +334,35 @@
           <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.0</span>
         </div>
       </div>
+      <div class="skill-card" data-path=".agents/skills/github-provider/SKILL.md">
+        <div class="name">github-provider</div>
+        <div class="desc">GitHub provider for spec-to-pr — issue→spec, auth checks, PR create/threads/merge via gh CLI and provider scripts. Use when providers.active or providers.scm is github, or when invoking /github-provider standalone.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/github-provider/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.0</span>
+        </div>
+      </div>
+      <div class="skill-card" data-path=".agents/skills/local-spec-provider/SKILL.md">
+        <div class="name">local-spec-provider</div>
+        <div class="desc">Local markdown spec provider for spec-to-pr — detect/configure specsDir, register/normalize/mirror   hand-written *.spec.md into canonical step-00 artifacts (source: local). PR intents delegate to   providers.scm. Use when /local-spec-provider, active provider is local, or registering a local   *.spec.md path.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/local-spec-provider/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.0</span>
+        </div>
+      </div>
       <div class="skill-card" data-path=".agents/skills/mobile-first-design/SKILL.md">
         <div class="name">mobile-first-design</div>
         <div class="desc">Design for mobile devices first, then scale up to larger screens. Create   responsive interfaces that work seamlessly across all device sizes.</div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
           <a class="view-skill" href="#" data-path=".agents/skills/mobile-first-design/SKILL.md">View skill</a>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.0</span>
+        </div>
+      </div>
+      <div class="skill-card" data-path=".agents/skills/spec-to-pr-lite/SKILL.md">
+        <div class="name">spec-to-pr-lite</div>
+        <div class="desc">Spec-to-PR lite delivery orchestrator FSM. Runs a fast, sequential planning-to-review pipeline.   Invoke: /spec-to-pr-lite | @[spec-to-pr-lite]. Entry: GitHub issue | Azure DevOps work item | *.spec.md.   Flags: dry-run, auto, skip-tests, full, --model, --model-chain. Delegates via Task tool.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+          <a class="view-skill" href="#" data-path=".agents/skills/spec-to-pr-lite/SKILL.md">View skill</a>
           <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">v1.0</span>
         </div>
       </div>
