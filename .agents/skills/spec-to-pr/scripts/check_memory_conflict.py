@@ -20,9 +20,20 @@ import json
 from pathlib import Path
 
 
+def ensure_utf8_stdio() -> None:
+    """Force UTF-8 on stdio so Windows locale (cp1252) does not break text I/O."""
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if not callable(reconfigure):
+            continue
+        try:
+            reconfigure(encoding="utf-8")
+        except Exception:
+            pass
+
+
 SKILL_ROOT = Path(__file__).resolve().parent.parent
-REPO_ROOT = Path(__file__).resolve().parents[4]   # .agents/skills/spec-to-pr/scripts -> repo root
-MEMORY_PATH = REPO_ROOT / "MEMORY.md"
+MEMORY_PATH = SKILL_ROOT / "extra-skills" / "self-learning" / "MEMORY.md"
 
 KNOWN_MODULES = [
     "Companies", "Members", "Placement", "Activation", "Ledger",
@@ -275,8 +286,7 @@ def format_report(plan_path: Path, plan_keywords: dict, results: dict) -> str:
 
 
 def main():
-    if sys.platform == "win32":
-        sys.stdout.reconfigure(encoding="utf-8")
+    ensure_utf8_stdio()
 
     as_json = False
     args = [a for a in sys.argv[1:] if not a.startswith("--")]

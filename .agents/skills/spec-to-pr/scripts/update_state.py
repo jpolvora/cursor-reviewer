@@ -22,6 +22,19 @@ import argparse
 from pathlib import Path
 import subprocess
 
+
+def ensure_utf8_stdio() -> None:
+    """Force UTF-8 on stdio so Windows locale (cp1252) does not break text I/O."""
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if not callable(reconfigure):
+            continue
+        try:
+            reconfigure(encoding="utf-8")
+        except Exception:
+            pass
+
+
 # Simple YAML serializer for our specific flat/nested state structure
 def serialize_yaml(data: dict) -> str:
     lines = []
@@ -191,6 +204,7 @@ def parse_state_yaml(fm: str) -> dict:
     return data
 
 def main():
+    ensure_utf8_stdio()
     parser = argparse.ArgumentParser(description="Update spec-to-pr state.md frontmatter")
     parser.add_argument("state_path", type=str, help="Path to state.md file")
     parser.add_argument("--step", type=int, required=True, help="Step number that just completed")
@@ -357,6 +371,7 @@ def main():
         next_step = 8 # Review readiness sub-gate
         
     data["currentStep"] = next_step
+    data["workflowType"] = "standard"
     
     # 6. Append Gate History
     gate_choice = args.gate_choice or f"Advance to Step {next_step}"
@@ -378,7 +393,12 @@ def main():
     # Run validate_state.py as safety check
     validator_path = Path(__file__).resolve().parent / "validate_state.py"
     if validator_path.exists():
-        r = subprocess.run([sys.executable, str(validator_path), str(state_path)], capture_output=True, text=True)
+        r = subprocess.run(
+            [sys.executable, str(validator_path), str(state_path)],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
         if r.returncode != 0:
             print("Validation FAILED after update:")
             print(r.stdout)

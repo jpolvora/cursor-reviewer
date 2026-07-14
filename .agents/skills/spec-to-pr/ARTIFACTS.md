@@ -10,7 +10,7 @@
 | `{specs-dir}` | `config.json.plans.specsDir` (default: `specs`) — optional mirror only |
 | `{us-dir}` | `{plans-dir}/{slug}/` |
 | `{slug}` | `us-{id}` for issues; basename or frontmatter `slug:` for local specs |
-| `{workflow-id}` | Unique run id (ISO-based); state file basename without `.state.md` |
+| `{workflow-id}` | Unique run id; state file basename without `.state.md`. **Format:** `{slug}-{YYYYMMDDTHHMMSSZ}[-{suffix}]` (issue runs: `us-{id}-{YYYYMMDDTHHMMSSZ}`). Examples: `us-2416-20260621T214006`, `spec-provider-skills-20260713T142006Z-7cdbef`. **Not** `step-*` (reserved for step artifacts below) and **not** invented abbreviations (`stp-`, `uswf-` as basename). |
 | `{worktrees-dir}` | `config.json.plans.worktreesDir` with `{slug}` substituted (default: `{us-dir}/worktrees`) |
 
 Never write workflow state under `.agents/`.
@@ -43,10 +43,10 @@ Stage **only**:
 
 | Input | Action | Canonical write | `source` frontmatter |
 |-------|--------|-----------------|----------------------|
-| GitHub `{n}` / `US {n}` | `gh issue view` → `github-issue-to-spec.py` | `{us-dir}/step-00-{slug}.spec.md` | `github` |
-| ADO `{org}/{project}#{id}` or `ADO {id}` / `WI {id}` | `ado-workitem-to-spec.py` (live or offline JSON) | `{us-dir}/step-00-{slug}.spec.md` | `azure-devops` |
-| Hand-written `*.spec.md` (any path) | Copy/normalize into us-dir; ensure `source: local` | `{us-dir}/step-00-{slug}.spec.md` | `local` |
-| Free-text brainstorm | `00-write-spec` | `{us-dir}/step-00-{slug}.spec.md` | `local` |
+| GitHub `{n}` / `US {n}` | [`github-provider`](../github-provider/SKILL.md) `fetch-to-spec` | `{us-dir}/step-00-{slug}.spec.md` | `github` |
+| ADO `{org}/{project}#{id}` or `ADO {id}` / `WI {id}` | [`azure-devops-provider`](../azure-devops-provider/SKILL.md) `fetch-to-spec` | `{us-dir}/step-00-{slug}.spec.md` | `azure-devops` |
+| Hand-written `*.spec.md` (any path) | [`local-spec-provider`](../local-spec-provider/SKILL.md) `fetch-to-spec` | `{us-dir}/step-00-{slug}.spec.md` | `local` |
+| Free-text brainstorm | `00-write-spec` (optional mirror via `local-spec-provider`) | `{us-dir}/step-00-{slug}.spec.md` | `local` |
 
 Optional: copy a read-only mirror to `{specs-dir}/{slug}.spec.md` for human browsing. Downstream skills **always** read `## Artifacts.specPath` (must point at the `step-00-` file under `{us-dir}`).
 
@@ -60,6 +60,8 @@ Do **not** use these as canonical paths (legacy FAQ drift):
 - `{us-dir}/{slug}.plan.md`
 - `{specs-dir}/{slug}.spec.md` as the only copy (mirror OK)
 - Bare `{slug}.result.md` without `step-12-` prefix
+- `stp-*.state.md` or any invented prefix for state (use `{workflow-id}.state.md` with `{slug}-{ISO}` form)
+- `step-*.state.md` — `step-NN-` is **only** for step deliverables in the table above, never for state/archive/baseline
 
 ## Runtime (portability)
 

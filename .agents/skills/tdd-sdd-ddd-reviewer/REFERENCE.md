@@ -6,7 +6,7 @@ Backend (.NET/C#) and frontend (React/TypeScript) audit criteria. **Project-agno
 
 ## Project conventions (check senior-developer first)
 
-Load authoritative conventions from [senior-developer](../senior-developer/SKILL.md) and project docs before applying generic DDD advice.
+Load authoritative conventions from [senior-developer](../../../AGENTS.md#external-dependencies) (resolve via `config.json.rules.seniorDeveloper`) and project docs before applying generic DDD advice.
 
 | Area | Typical rule (resolve names from project docs) |
 |------|-----------------------------------------------|

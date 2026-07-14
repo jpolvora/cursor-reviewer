@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jpolvora/workflow-skills/spec-to-pr/config.schema.json",
+  "title": "spec-to-pr project config",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["project", "verification", "plans"],
+  "properties": {
+    "toolsFile": { "type": "string", "default": "tools.md" },
+    "project": {
+      "type": "object",
+      "required": ["name", "baseBranch"],
+      "properties": {
+        "name": { "type": "string" },
+        "org": { "type": "string" },
+        "repoUrl": { "type": "string" },
+        "baseBranch": { "type": "string", "description": "PR target branch (main or master)" },
+        "workingBranch": {
+          "type": "string",
+          "default": "develop",
+          "description": "Active delivery branch used by ship-pr / Step 13"
+        },
+        "gitRemote": { "type": "string", "default": "origin" }
+      }
+    },
+    "stack": { "type": "object" },
+    "domain": { "type": "object" },
+    "providers": {
+      "type": "object",
+      "description": "Work-item/spec source and SCM host. Optional: when omitted, infer active from issueTrackers.*.enabled (GitHub if enabled, else Azure DevOps, else local); scm defaults to active when active is github|azure-devops, or from project.repoUrl host when active is local.",
+      "additionalProperties": true,
+      "properties": {
+        "active": {
+          "type": "string",
+          "enum": ["github", "azure-devops", "local"],
+          "description": "Provider skill for fetch-to-spec / entry registration. When set, overrides bare-number tracker preference from issueTrackers.*.enabled."
+        },
+        "scm": {
+          "type": "string",
+          "enum": ["github", "azure-devops"],
+          "description": "Provider skill for create-pr, list-threads, resolve-thread, merge-pr, and remote validate-auth. Never local. Hybrid allowed: active=local with scm=github|azure-devops."
+        }
+      }
+    },
+    "issueTrackers": { "type": "object" },
+    "verification": {
+      "type": "object",
+      "properties": {
+        "backendBuild": { "type": "string" },
+        "backendTest": { "type": "string" },
+        "backendFormat": { "type": "string" },
+        "frontendBuild": { "type": "string" },
+        "frontendTest": { "type": "string" },
+        "migrationsAdd": { "type": "string" },
+        "migrationsApply": { "type": "string" }
+      }
+    },
+    "dagThresholds": {
+      "type": "object",
+      "properties": {
+        "maxImplementationSteps": { "type": "integer", "minimum": 1 },
+        "maxExpectedFiles": { "type": "integer", "minimum": 1 },
+        "maxLayers": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "properties": {
+        "autoMode": { "type": "boolean" },
+        "dryRun": { "type": "boolean" },
+        "skipIntegration": { "type": "boolean" },
+        "skipTests": { "type": "boolean" },
+        "fullMode": { "type": "boolean" }
+      }
+    },
+    "plans": {
+      "type": "object",
+      "required": ["dir"],
+      "properties": {
+        "dir": {
+          "type": "string",
+          "default": ".cursor/plans",
+          "description": "Root for {us-dir} = {dir}/{slug}/"
+        },
+        "specsDir": {
+          "type": "string",
+          "default": "specs",
+          "description": "Repo-relative directory for human-facing local specs (default: specs at repo root). Used by local-spec-provider detect/configure and optional mirrors; canonical workflow copy remains {us-dir}/step-00-{slug}.spec.md"
+        },
+        "worktreesDir": {
+          "type": "string",
+          "default": ".cursor/plans/{slug}/worktrees"
+        }
+      }
+    },
+    "rules": { "type": "object" },
+    "invariants": { "type": "object" }
+  }
+}

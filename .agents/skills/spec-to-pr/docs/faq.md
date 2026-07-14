@@ -1,6 +1,6 @@
 # FAQ — Spec-to-PR
 
-> **Architecture note (v10.0):** Steps 0–11 delegate their functional content to dedicated skills (`00`–`07`). Stack detected via `.agents/skills/spec-to-pr/config.json`; tools via `tools.md`. Project-agnostic. Step 13 optional via `--full`. The orchestration mechanics (phases, gates, worktrees, banners, state.md) remain valid.
+> **Architecture note (v10.0):** Steps 0–11 delegate their functional content to dedicated skills (`00`–`07`). Stack detected via `.agents/skills/shared/config.json`; tools via `tools.md`. Project-agnostic. Step 13 optional via `--full`. The orchestration mechanics (phases, gates, worktrees, banners, state.md) remain valid.
 >
 > **Audience:** developers, tech leads, and agents who need to understand **how** the end-to-end User Story delivery pipeline works.
 > **Order:** sections follow **execution sequence** (F0→F6, steps 0–12; 13 with `--full`), from invocation to closure.
@@ -94,8 +94,9 @@ An **orchestrated pipeline** for delivering a User Story (or feature described i
 - Automatic push to remote (only with explicit consent at Step 12)
 - Commit without explicit G2 gate (Steps 7, 10, 11)
 - Infer "yes" when the user cancels an `AskQuestion` (HS-1)
+- Skip native `AskQuestion` and jump straight to a markdown “reply with 1/2/3” menu in normal mode (must **probe by invoking**; fallback only after explicit tool failure — [`SKILL.md`](../SKILL.md) § AskQuestion requirement)
 
-**Evidence:** [`SKILL.md`](../SKILL.md) § Allowed dependencies, § Authorization Ladder.
+**Evidence:** [`SKILL.md`](../SKILL.md) § Allowed dependencies, § Authorization Ladder, § AskQuestion requirement.
 
 ---
 
@@ -157,15 +158,33 @@ flowchart TD
 
 | Input | What Step 0 interprets |
 |-------|------------------------|
-| Number (`2416`) or `US 2416` | GitHub issue (default) → `.cursor/plans/us-2416/` via `gh` + `github-issue-to-spec.py` |
-| `{org}/{project}#{id}` | Azure DevOps work item → `.cursor/plans/us-{id}/` via `ado-workitem-to-spec.py` |
-| `ADO {id}` / `WI {id}` | Azure DevOps using org/project from `config.json.issueTrackers.azureDevOps` |
-| `*.spec.md` path | Hand-written local spec → copy/normalize to `{us-dir}/step-00-{slug}.spec.md` |
+| Number (`2416`) or `US 2416` | Active provider `fetch-to-spec` (default GitHub when `providers` omitted / `active=github`) → `.cursor/plans/us-2416/` via [`github-provider`](../../github-provider/SKILL.md) |
+| `{org}/{project}#{id}` | Azure DevOps work item → `.cursor/plans/us-{id}/` via [`azure-devops-provider`](../../azure-devops-provider/SKILL.md) `fetch-to-spec` |
+| `ADO {id}` / `WI {id}` | Same; org/project from `config.json.issueTrackers.azureDevOps` |
+| `*.spec.md` path | Local spec → [`local-spec-provider`](../../local-spec-provider/SKILL.md) `fetch-to-spec` → `{us-dir}/step-00-{slug}.spec.md` |
 | Free text (`soft-delete for suppliers`) | Brainstorm via `00-write-spec` — slug from title |
 | `auto` | `autoMode: true` — no interactive menus |
 | `dry-run` | `dryRun: true` — simulation without side effects |
 | `skip-integration` | `skipIntegration: true` — skips Step 11 entirely |
 | `skip-tests` | `skipTests: true` — skips test suites (build still runs) |
+
+### Where do provider skills live, and how do I get them?
+
+| Provider | Path | Owns |
+|----------|------|------|
+| [`github-provider`](../../github-provider/SKILL.md) | `.agents/skills/github-provider/` | GitHub `fetch-to-spec`, auth, PR create/threads/merge |
+| [`azure-devops-provider`](../../azure-devops-provider/SKILL.md) | `.agents/skills/azure-devops-provider/` | ADO work item→spec, auth, PR create/threads/merge |
+| [`local-spec-provider`](../../local-spec-provider/SKILL.md) | `.agents/skills/local-spec-provider/` | Local `*.spec.md` register/normalize; PR via `providers.scm` |
+
+`providers.active` selects who runs `fetch-to-spec`. `providers.scm` selects who runs PR/thread/merge intents.
+
+If your consumer project already had `spec-to-pr` installed **before** these folders existed upstream, plain `update` will not create them. Install the new skills with:
+
+```bash
+npx github:jpolvora/workflow-skills update --include-new
+```
+
+(Or pick them in the interactive installer.)
 
 ### What happens if an active workflow already exists?
 
@@ -192,10 +211,10 @@ In **normal mode**, Step 0 checks `.cursor/plans/*/*.state.md` and offers a menu
 2. Check for active workflows (resume or new)
 3. Create `{us-dir}/{workflow-id}.state.md` in `.cursor/plans/{slug}/`
 4. Capture baseline: `baselineCommit`, `preExistingDirty`, tag `before-step-1`
-5. **Specification Protocol** (see [`SKILL.md`](../SKILL.md) + [`ARTIFACTS.md`](../ARTIFACTS.md)):
-   - **GitHub:** `gh issue view {n}` + `github-issue-to-spec.py` → `step-00-{slug}.spec.md`
-   - **Azure DevOps:** `ado-workitem-to-spec.py` (PAT from env) → `step-00-{slug}.spec.md`
-   - **Hand-written:** copy/normalize local `*.spec.md` → `step-00-{slug}.spec.md` under `{us-dir}`
+5. **Specification Protocol** (see [`SKILL.md`](../SKILL.md) + [`ARTIFACTS.md`](../ARTIFACTS.md)): resolve `providers.active` → load provider skill → `fetch-to-spec`:
+   - **GitHub:** [`github-provider`](../../github-provider/SKILL.md) owns fetch/convert → `step-00-{slug}.spec.md`
+   - **Azure DevOps:** [`azure-devops-provider`](../../azure-devops-provider/SKILL.md) owns fetch/convert → `step-00-{slug}.spec.md`
+   - **Hand-written:** [`local-spec-provider`](../../local-spec-provider/SKILL.md) owns register/normalize → `step-00-{slug}.spec.md` under `{us-dir}`
 6. **Memory & Decisions Consultation** (protocol): read `## Workflow memory`, `## Accumulated decisions` and `## Doc consolidation log` from `state.md` (on resume), then consult `MEMORY.md` (root) only on relevant scope
 7. Initial Progress Board + Transition Gate → Step 1 (or auto-advance in `autoMode`)
 
@@ -223,7 +242,7 @@ In **normal mode**, Step 0 checks `.cursor/plans/*/*.state.md` and offers a menu
 
 **Does Step 0 alter code?** No. Authorization level G0 (read-only).
 
-**What is `workflow-id`?** Unique execution identifier (e.g., `us-2416-20260621T214006`), distinct from the US number.
+**What is `workflow-id`?** Unique execution identifier in the form `{slug}-{YYYYMMDDTHHMMSSZ}` (issue runs: `us-{id}-{YYYYMMDDTHHMMSSZ}`), e.g. `us-2416-20260621T214006` or `spec-provider-skills-20260713T142006Z-7cdbef`. Distinct from the US number and from `step-NN-*` step artifact filenames. See [`ARTIFACTS.md`](../ARTIFACTS.md).
 
 **Can I validate the state?** Optionally: `python .agents/skills/spec-to-pr/scripts/validate_state.py {workflow-id}`.
 
@@ -624,7 +643,7 @@ Everything under `{plans-dir}/{slug}/` (default `.cursor/plans/{slug}/`). Canoni
 | Delivery result | `{us-dir}/step-12-{slug}.result.md` |
 | Technical memory (root) | `MEMORY.md` |
 
-> Resume / Active Resume rules: see [`setup.md`](../setup.md) § Resume / Reset (canonical). This FAQ does not redefine them.
+> Resume / Active Resume rules: see [`setup.md`](../../shared/setup.md) § Resume / Reset (canonical). This FAQ does not redefine them.
 
 ### State file sections (`state.md`)
 
@@ -702,6 +721,10 @@ Every **Transition Gate** (after each step) includes a **Switch model and advanc
 ### What happens if I cancel an AskQuestion?
 
 The orchestrator **never infers "yes"**. HS-1 activates: stop, re-present the gate with a warning.
+
+### AskQuestion is missing / the agent only prints 1/2/3
+
+In **normal** mode the orchestrator must **call** the native `AskQuestion` tool every gate (probe → invoke). Markdown menus are allowed **only** after an explicit invoke failure (`Tool not found: AskQuestion`, etc.), logged as `askquestion-unavailable`. If the current model never exposes the tool, switch to Claude/GPT or Plan mode for the picker UI. Consumers can also install `.agents/skills/spec-to-pr/cursor-rules/ask-question-gates.mdc` into `.cursor/rules/` (setup step 1a).
 
 ### Step 11 wants to use the browser but I'm on auto/dry-run
 

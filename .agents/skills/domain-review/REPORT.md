@@ -62,7 +62,7 @@ After the chat report, replace or insert this section on `specs/domains/{slug}.m
 | Date | YYYY-MM-DD |
 | Skill | [domain-review](../../.agents/skills/domain-review/SKILL.md) |
 | Critical / Warning | N / M |
-| Specs & ADRs (existing) | [Title](relative-link); … — or `No file found` |
+| Specs & ADRs (existing) | [Title](../path/to/spec.md); … — or `No file found` |
 
 *Automatically updated upon completing a domain review. Counts = report Summary.*
 ```

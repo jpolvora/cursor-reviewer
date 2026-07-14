@@ -15,7 +15,7 @@ upstream: jpolvora/workflow-skills — this skill is a workflow owned by workflo
 | **Orchestrator (this file)** | FSM + tool bindings + asserts |
 | **Humans** | [`README.md`](README.md), [`docs/faq.md`](docs/faq.md), [`DIAGRAM.md`](DIAGRAM.md) |
 
-**Load:** current step + linked protocols only. Setup → [`setup.md`](setup.md) (config bootstrap, flags, resume). Artifacts → [`ARTIFACTS.md`](ARTIFACTS.md) (canonical paths). Stack → `config.json.rules.stackFile` (auto-loaded steps 5,7,9–11). Hub → [`AGENTS.md`](../../../AGENTS.md). Step 2 → [`02-interview`](../02-interview/SKILL.md). Tools → [`tools.md`](tools.md).
+**Load:** current step + linked protocols only. Setup → [`setup.md`](../shared/setup.md) (config bootstrap, flags, resume). Artifacts → [`ARTIFACTS.md`](ARTIFACTS.md) (canonical paths). Stack → `config.json.rules.stackFile` (auto-loaded steps 5,7,9–11). Hub → [`AGENTS.md`](../../../AGENTS.md). Step 2 → [`02-interview`](../02-interview/SKILL.md). Tools → [`tools.md`](../shared/tools.md).
 
 ## Language
 
@@ -23,12 +23,12 @@ upstream: jpolvora/workflow-skills — this skill is a workflow owned by workflo
 
 ## Native tool contract
 
-Canonical tool names from [`tools.md`](tools.md). Project params from [`config.json`](.agents/skills/spec-to-pr/config.json). Never narrate undone work.
+Canonical tool names from [`tools.md`](../shared/tools.md). Project params from [`config.json`](../shared/config.json) (repo-root path: `.agents/skills/shared/config.json`). Never narrate undone work.
 
 | Intent | Tool alias | Native | Rule |
 |--------|------------|--------|------|
 | Step work | `dispatch-agent` | `Task` | `subagent_type: generalPurpose\|shell`; `description: "STP step {N} — {Label}"`; `readonly: true` step 6 only; no resume across steps; step 5 DAG ≤3 parallel |
-| User gate | `user-gate` / `user-gate-auto` | `AskQuestion` | ≥2 options; recommended first; cancelled → HS-1; auto → auto-gate |
+| User gate | `user-gate` / `user-gate-auto` | `AskQuestion` | **FORCE invoke** every normal-mode gate — probe exposure, call tool, fallback only after failed invoke; see [AskQuestion requirement](#askquestion-requirement); ≥2 options; recommended first; cancelled → HS-1; auto → auto-gate |
 | Build/test | `build-backend`, `test-backend`, etc. | `Shell` | values from `config.json.verification` |
 | Source control | `commit-code`, `push-branch`, etc. | `Shell` | `gh`, `git`; cite real output |
 | State | `read-state` / `write-state` | `Read` + `Write`/`StrReplace` | truth source; hygiene before board |
@@ -40,6 +40,52 @@ Canonical tool names from [`tools.md`](tools.md). Project params from [`config.j
 Subagents: native tools for evidence; end with parseable `step-output` block.
 
 User output: post-tool summaries + Progress Board + banners.
+
+### AskQuestion requirement
+
+**FORCE:** In agent chat (normal mode), every user decision MUST attempt the native `AskQuestion` tool **before** any markdown menu. Do not skip the call because the model “thinks” the tool is missing — **probe by invoking**.
+
+| Applies to | Examples |
+|------------|----------|
+| Transition gates | Advance / switch model / repeat / go back / pause |
+| Entry / resume / auth / config gates | Step 0 entry, Active Resume, tracker auth, config bootstrap |
+| Model sub-gates | Steps 4† / 8† |
+| Refinement | 2c Escalate, 2e Shared Understanding |
+| Commit / delivery / cleanup / push / ship | Steps 7, 12, 13 |
+| Any clarifying choice with ≥2 discrete options | Harness maintenance confirmations, blocker resolution |
+
+**Probe protocol (every gate, same turn as Progress Board):**
+
+1. **Check tool exposed** — Inspect the current agent callable tool list / system tool catalog for a native tool named `AskQuestion` (or alias `ask_question`). Record in `## Gate history`:
+   - `askquestion-exposed | true|false | {gate} | ISO`
+2. **FORCE invoke** — If exposed **or unknown**, call `AskQuestion` immediately with ≥2 options (recommended first). Do **not** wait for free-text. Prefer one `AskQuestion` per assistant message.
+3. **Success** — Stop and wait for the UI selection. Cancelled / dismissed → **HS-1** (STOP; re-present; never infer “yes”).
+4. **Hard failure only** — Fallback markdown is allowed **only** after the runtime returns an explicit error such as `Tool not found: AskQuestion` / tool absent from catalog **and** the invoke failed. Then log `askquestion-unavailable | {gate} | {error} | ISO` and present an equivalent numbered menu.
+5. **`autoMode`** — no `AskQuestion`; use auto-gate table (option index 0) only.
+6. **Forbidden** — Skipping the invoke and going straight to “reply with 1/2/3”; inferring a choice from chat tone; continuing past a gate without a selected option (except `autoMode`); claiming “AskQuestion unavailable” without a failed invoke + log line.
+
+**Typical `AskQuestion` shape** (runtime may vary slightly):
+
+```yaml
+AskQuestion:
+  title: "Spec-to-PR — {gate label}"   # optional
+  questions:
+    - id: "{gate_id}"
+      prompt: "{short prompt; include current model + next step}"
+      options:
+        - id: advance
+          label: "Advance to Step N — Recommended"
+        - id: switch_model
+          label: "Switch model and advance"
+        - id: repeat
+          label: "Repeat Step M"
+        - id: go_back
+          label: "Go back to earlier step"
+        - id: pause
+          label: "Pause workflow"
+```
+
+If Composer / current model does not expose `AskQuestion`, log exposure=`false`, attempt once, then fallback — and tell the user to switch model (Claude/GPT) or Plan mode for picker UI.
 
 ---
 
@@ -87,11 +133,12 @@ Deterministic FSM; step content delegated to skills via **`Task`**.
 | Orchestrator | `SKILL.md` |
 | **Artifacts** | [`ARTIFACTS.md`](ARTIFACTS.md) — canonical filenames + path resolution |
 | **Setup** | `setup.md` — initialization, config bootstrap, flags, resume, stack file generation |
-| **Config** | `.agents/skills/spec-to-pr/config.json` — project identity, stack, issue trackers, verification commands, invariants |
+| **Config** | `.agents/skills/shared/config.json` — project identity, stack, issue trackers, verification commands, invariants |
 | **Tools** | `tools.md` — canonical tool aliases |
 | Stack | `config.json.rules.stackFile` — project-specific stack reference; derived from config.json and auto-loaded for code review & optimization |
-| Scripts | `check_memory_conflict.py`, `validate_state.py`, `github-issue-to-spec.py`, `ado-workitem-to-spec.py` |
-| GitHub | `gh` CLI only |
+| Scripts | Orchestrator: `check_memory_conflict.py`, `validate_state.py` under `spec-to-pr/scripts/`. Converters + thread helpers: **canonical** under `github-provider/scripts/` and `azure-devops-provider/scripts/` (thin shims remain at `spec-to-pr/scripts/` and `08-fix-pr/scripts/` for canonicity). Local register/mirror: `local-spec-provider/scripts/`. |
+| Providers | [`github-provider`](../github-provider/SKILL.md) · [`azure-devops-provider`](../azure-devops-provider/SKILL.md) · [`local-spec-provider`](../local-spec-provider/SKILL.md) — `providers.active` owns `fetch-to-spec`; `providers.scm` owns PR/thread/merge intents |
+| SCM CLIs | Via provider skills only (`gh` / `az`); orchestrator does not embed platform CLI recipes |
 | State | `{config.plans.dir}/{slug}/{workflow-id}.state.md` |
 | Skills | `00-write-spec`→0 · `01-write-plan`→1 · `02-interview`→2 · `03-plan-to-tasks`→3 · `04-implement-tasks`→5 build, 10 fix · `05-verify-plan`→6 · `06-code-review`→9 · `07-integration-validation`→11 · `11-ship-pr`→13 |
 | Spec | `spec-format` |
@@ -326,7 +373,7 @@ Anchor (`Shell` tag): `uswf/{workflow-id}/before-step-{N} @ {sha}`. Worktree 5/1
 
 ### Learning & Memory Protocol
 
-**Purpose:** Prevent repeating mistakes across steps and across workflow runs. `state.md` acts as the intra-workflow knowledge bus, while `MEMORY.md` (root) is the cross-session, persistent anti-regression knowledge base.
+**Purpose:** Prevent repeating mistakes across steps and across workflow runs. `state.md` acts as the intra-workflow knowledge bus, while the compiled `MEMORY.md` inside the `self-learning` extra-skill folder is the cross-session, persistent anti-regression knowledge base.
 
 #### 1. Pre-read Checklist (Memory Consultation)
 At the start of every step, the subagent MUST read the following sections:
@@ -337,94 +384,76 @@ At the start of every step, the subagent MUST read the following sections:
 | `state.md` | `## Accumulated decisions` | Design choices, assumption flags, deviations from plan |
 | `state.md` | `## Step outputs` (all `### Step N` blocks) | Prior errors, retry patterns, broken approaches |
 | `state.md` | `## Doc consolidation log` | Docs updated during workflow |
-| `MEMORY.md` | Index + scope-related sections | Generalizable anti-regression patterns from past workflows |
+| `self-learning/MEMORY.md` | Index + scope-related sections | Generalizable anti-regression patterns from past workflows |
 | `check_memory_conflict.py` | script output | Conflict detection (steps 2,3,5,9,10) |
 
 - **Intra-workflow Avoidance:** Scan `## Step outputs ### Step N` for `errors[]` and `learning` fields. Subagent MUST NOT repeat approaches that prior steps logged as broken.
 
-#### 2. Writing Back Learndings
+#### 2. Writing Back Learnings
 After step completion, the subagent records in `step-output.learning` (mistakes made, traps/constraints found). The orchestrator appends these to `state.md` `## Workflow memory`.
 
 #### 3. Inter-workflow Promotion (Step 12 Sweep)
-At Step 12, the orchestrator reviews all `## Workflow memory` and `step-output.learning` entries, promoting generalizable patterns to `MEMORY.md`.
-- **Promotion Criteria:** Technical (framework/api/pattern level, not domain-specific), generalizable, non-duplicate (grep `MEMORY.md` first), and concise (one line per trap).
-- **Target Sections:** `## Patterns`, `## Traps`, `## Review Patterns`, `## Index`.
+At Step 12, the orchestrator reviews all `## Workflow memory` and `step-output.learning` entries, promoting generalizable patterns to the file-based memory system under `self-learning`.
+- **Promotion Process:** For each promoted learning, create a new markdown file under `.agents/skills/shared/self-learning/memory/YYYY-MM-DD-[slug].md`. Then, run the compiler script: `python .agents/skills/shared/self-learning/self_learning.py --compile`.
+- **Promotion Criteria:** Technical (framework/api/pattern level, not domain-specific), generalizable, non-duplicate (query/grep memory first), and concise (one line per trap).
+- **Target Sections:** Traps, patterns, layers, modules, severity.
 - **Exclusions:** Do NOT store logs (→ `CHANGELOG.md`), domain rules (→ `CONTEXT.md` / `specs/`), narratives, or duplicates.
-- **`dryRun`:** Log proposed entries in `## Doc consolidation log` only — do not edit `MEMORY.md`.
+- **`dryRun`:** Log proposed entries in `## Doc consolidation log` only — do not write new entry files to `memory/` or run the compiler.
 
 ### Specification Protocol
 
-[`spec-format`](./extra-skills/spec-format/SKILL.md). Canonical spec: `{us-dir}/step-00-{slug}.spec.md` — never live tracker APIs and never `*.issue.json` after Step 0. Tracker config: `config.json.issueTrackers`.
+[`spec-format`](../shared/spec-format/SKILL.md). Canonical spec: `{us-dir}/step-00-{slug}.spec.md` — never live tracker APIs and never `*.issue.json` after Step 0. Tracker credentials/org: `config.json.issueTrackers`. Entry ownership: `config.json.providers` + provider skills below.
 
-| Input | Tracker | Action | Uses Step 0? |
-|-------|---------|--------|--------------|
-| `{n}` or `US {n}` | GitHub (default when `issueTrackers.github.enabled`) | `slug=us-{n}`; fetch → convert → `{us-dir}/step-00-us-{n}.spec.md` | No — skip to Step 1 |
-| `{org}/{project}#{id}` | Azure DevOps | `slug=us-{id}`; fetch → convert → `{us-dir}/step-00-us-{id}.spec.md` | No — skip to Step 1 |
-| `ADO {id}` / `WI {id}` | Azure DevOps | Same as above; org/project from `issueTrackers.azureDevOps` | No — skip to Step 1 |
-| `*.spec.md` (any path) | Hand-written / local | Register/copy → `{us-dir}/step-00-{slug}.spec.md` | No — skip to Step 1 |
-| free-text / no args | none | brainstorm → `00-write-spec` → `{us-dir}/step-00-{slug}.spec.md` (optional mirror `{specs-dir}/{slug}.spec.md`) | Yes — `Task` `00-write-spec` |
+| Input | Tracker / provider | Action | Uses Step 0? |
+|-------|--------------------|--------|--------------|
+| `{n}` or `US {n}` | `providers.active` (legacy: GitHub when enabled) | `slug=us-{n}`; load active provider → `fetch-to-spec` → `{us-dir}/step-00-us-{n}.spec.md` | No — skip to Step 1 |
+| `{org}/{project}#{id}` | `azure-devops-provider` | `slug=us-{id}`; `fetch-to-spec` → `{us-dir}/step-00-us-{id}.spec.md` | No — skip to Step 1 |
+| `ADO {id}` / `WI {id}` | `azure-devops-provider` | Same as above; org/project from `issueTrackers.azureDevOps` | No — skip to Step 1 |
+| `*.spec.md` (any path) | `local-spec-provider` | `fetch-to-spec` (register/normalize) → `{us-dir}/step-00-{slug}.spec.md` | No — skip to Step 1 |
+| free-text / no args | none | brainstorm → `00-write-spec` → `{us-dir}/step-00-{slug}.spec.md` (optional mirror via `local-spec-provider`) | Yes — `Task` `00-write-spec` |
 
-**Bare number resolution:** if only `azureDevOps.enabled` and GitHub disabled → treat `{n}` as ADO work item. If both enabled → bare `{n}` = GitHub; require `ADO {id}` or `{org}/{project}#{id}` for ADO. If the required tracker is disabled or unauthenticated → STOP with fix instructions.
+#### Provider resolution
 
-#### GitHub (`gh`) — concrete steps
+Document identically in each provider skill (no shared package):
 
-Requires `issueTrackers.github.enabled: true` and authenticated `gh` (`gh auth status`).
+1. Read `providers.active` / `providers.scm` from `config.json`.
+2. If `providers` absent: enabled GitHub → active=`github`; else enabled ADO → `azure-devops`; else `local`. Prefer GitHub if both enabled.
+3. If `scm` absent: if active is `github`\|`azure-devops` → scm=active; if active=`local` → parse `project.repoUrl` host (`github.com` → github; `dev.azure.com` / `visualstudio.com` → azure-devops); else STOP and require explicit `providers.scm`.
+4. Reject `scm: "local"`.
+5. When `providers.active` is present, bare `{n}` / `US {n}` resolve against **active**, not dual-enabled tracker preference. Legacy dual-enabled bare-number rule applies only when `providers` is omitted.
 
-```bash
-mkdir -p .cursor/plans/us-{n}
-gh issue view {n} --json number,title,body,state,labels,assignees,comments,url \
-  > .cursor/plans/us-{n}/step-00-us-{n}.issue.json
-python .agents/skills/spec-to-pr/scripts/github-issue-to-spec.py \
-  --input .cursor/plans/us-{n}/step-00-us-{n}.issue.json \
-  --output .cursor/plans/us-{n}/step-00-us-{n}.spec.md \
-  --repo {owner}/{repo}
-```
+#### Dispatch — `fetch-to-spec` (entry)
 
-`owner`/`repo` from `issueTrackers.github` (or `project.org` / repo name). Script path may also come from `issueTrackers.github.issueToSpecScript`.
+| Active / entry | Skill | Intent |
+|----------------|-------|--------|
+| `github` or GitHub issue id | [`github-provider`](../github-provider/SKILL.md) | `fetch-to-spec` (+ `validate-auth` first when needed) |
+| `azure-devops` or ADO id forms | [`azure-devops-provider`](../azure-devops-provider/SKILL.md) | `fetch-to-spec` (+ `validate-auth` first when needed) |
+| `local` or `*.spec.md` path | [`local-spec-provider`](../local-spec-provider/SKILL.md) | `fetch-to-spec` |
 
-#### Azure DevOps — concrete steps
+Orchestrator **must not** embed multi-line `gh` / `az` / hand-written register recipes. Load the provider skill and run `fetch-to-spec`. Auth or config failure → STOP with that provider’s fix instructions; **no** silent fallback to another provider.
 
-Requires `issueTrackers.azureDevOps.enabled: true`, org/project filled, and PAT in env (`ADO_PAT` or `patEnvVar` / `AZURE_DEVOPS_PAT`).
+**Bare number resolution (legacy, when `providers` omitted):** if only `azureDevOps.enabled` and GitHub disabled → treat `{n}` as ADO work item. If both enabled → bare `{n}` = GitHub; require `ADO {id}` or `{org}/{project}#{id}` for ADO. If the required tracker is disabled or unauthenticated → STOP with fix instructions.
 
-```bash
-mkdir -p .cursor/plans/us-{id}
-python .agents/skills/spec-to-pr/scripts/ado-workitem-to-spec.py \
-  --org {org} --project {project} --id {id} \
-  --api-base {apiBase} --pat-env {patEnvVar} \
-  --snapshot .cursor/plans/us-{id}/step-00-us-{id}.issue.json \
-  --output .cursor/plans/us-{id}/step-00-us-{id}.spec.md
-```
-
-Values from `issueTrackers.azureDevOps`. Script path may also come from `issueTrackers.azureDevOps.workItemToSpecScript`.
-
-#### Hand-written local `*.spec.md` — concrete steps
-
-Accepts any existing markdown spec path (`specs/foo.spec.md`, `foo.spec.md`, or already `step-00-foo.spec.md`).
-
-1. Resolve `slug`: frontmatter `slug:` if present, else basename without `.spec.md` (strip leading `step-00-` if present).
-2. `mkdir -p {us-dir}` where `{us-dir}={plans-dir}/{slug}/`.
-3. Copy/normalize to `{us-dir}/step-00-{slug}.spec.md` (overwrite only if identical or user confirms).
-4. Ensure frontmatter has at least `slug`, `title`, `source: local` (add `source: local` if missing). Validate required sections per [`spec-format`](./extra-skills/spec-format/SKILL.md).
-5. Do **not** call tracker APIs. Optional: mirror to `{specs-dir}/{slug}.spec.md` for human browsing.
+**When `providers.active` is set:** bare `{n}` / `US {n}` use that provider (e.g. `active=azure-devops` → ADO work item). Explicit forms (`ADO {id}`, `{org}/{project}#{id}`, GitHub URL, `*.spec.md`) still select their matching provider.
 
 ### Step 0 Entry Gate
 
 Before Step 0, the orchestrator checks the trigger input and determines the entry flow:
 
 1. **Tracker id** (`{n}`, `US {n}`, `ADO {id}`, `WI {id}`, or `{org}/{project}#{id}`):
-   - Fetch + convert per Specification Protocol → `{us-dir}/step-00-{slug}.spec.md`.
+   - Resolve `providers.active` (algorithm above) → load that provider skill → `fetch-to-spec` → `{us-dir}/step-00-{slug}.spec.md`.
    - Registers `specPath`, `specSource` (`github` | `azure-devops`).
    - **Skips Step 0** — advances directly to the Step 1 gate.
 
 2. **Local `*.spec.md` provided as argument:**
-   - Register/copy per hand-written protocol. Registers `specPath`, `specSource: local`.
+   - Load [`local-spec-provider`](../local-spec-provider/SKILL.md) → `fetch-to-spec`. Registers `specPath`, `specSource: local`.
    - **Skips Step 0** — advances directly to the Step 1 gate.
 
 3. **No arguments (or free-text description as argument):**
    - Entry Menu (AskQuestion):
      - **I have a GitHub issue / ADO work item** (recommended) — same as case 1; skip Step 0 → Step 1.
      - **I have a local `*.spec.md`** — same as case 2.
-     - **I want to describe a feature to brainstorm** — `Task` `00-write-spec` → `{us-dir}/step-00-{slug}.spec.md` → Step 1 gate. **This is the only path that uses `00-write-spec`.**
+     - **I want to describe a feature to brainstorm** — `Task` `00-write-spec` → `{us-dir}/step-00-{slug}.spec.md` → Step 1 gate. **This is the only path that uses `00-write-spec`.** Optional post-draft mirror under `plans.specsDir`: delegate to `local-spec-provider`.
 
 After the entry gate, `specPath` is stored in state `## Artifacts.specPath` and snapshotted in `## Artifacts.specSnapshot`.
 
@@ -754,7 +783,7 @@ Sections: Workflow baseline, manifest, Step file log, Refinement registry, Conte
 
 ### Resume / reset
 
-Delegated to [`setup.md`](setup.md) § Resume / reset. The orchestrator loads this section during bootstrap step 4.
+Delegated to [`setup.md`](../shared/setup.md) § Resume / reset. The orchestrator loads this section during bootstrap step 4.
 
 ---
 
@@ -783,7 +812,7 @@ Post-step: hygiene → checkpoint (`Shell` tag) → board → gate.
 | Mode | Tool |
 |------|------|
 | auto | auto-gate table → immediate `Task`/`Shell` |
-| normal | **AskQuestion** 5 options → `Task` same turn |
+| normal | **`AskQuestion` (mandatory when available)** — 5 options → `Task` same turn. See [AskQuestion requirement](#askquestion-requirement). |
 
 **AskQuestion (normal) — every transition gate, steps 0→1 through 11→12:**
 
@@ -826,11 +855,13 @@ Step 11: **Skip validation**. Step 2: gate 2e before Step 3.
 
 ## Bootstrap & Entry
 
-Delegated to [`setup.md`](setup.md) § Bootstrap & Entry. Before Step 0, the orchestrator loads and executes this section.
+Delegated to [`setup.md`](../shared/setup.md) § Bootstrap & Entry. Before Step 0, the orchestrator loads and executes this section.
 
 ---
 
 ## Step instructions
+
+> **Consistency:** the Skill map above (`05-verify-plan` → Step 6, etc.) is authoritative. Keep this table aligned — never dispatch retired ids (`05-verify-sync-plan-us`, `implement-plan`, `plan-us`, …).
 
 | Step | Action | Artifact |
 |------|--------|----------|
@@ -845,7 +876,7 @@ Delegated to [`setup.md`](setup.md) § Bootstrap & Entry. Before Step 0, the orc
 | 8† | Model sub-gate F3→F4 | not in completedSteps |
 | 9 | `Task` `06-code-review`; scoped diff per `config.json.rules.stackFile` | score ≥6 or "No feedback" |
 | 10 | `Task` `04-implement-tasks` mode fix; G2-code only; `step-10-{slug}.report.md` uncommitted | HS-3/4 |
-| 11 | skipIntegration→Write skip; else `Task` `07-integration-validation`; browser if gated | reports uncommitted (`step-11-{slug}.integration-test.*`) |
+| 11 | skipIntegration→Write skip; else `Task` integration-validation; browser if gated | reports uncommitted (`step-11-{slug}.integration-test.*`) |
 | 12 | [Delivery Result Protocol](#delivery-result-protocol-step-12--before-delivery-commit) → LOC capture + benchmark → G2-delivery commit → optional [cleanup](#optional-artifact-cleanup-protocol-step-12--after-delivery-commit). `status: completed` unless `fullMode`. | `step-12-{slug}.result.md` + benchmark |
 | 13 | `fullMode` only. Gate → `Task`/`Shell` `11-ship-pr`: push → PR → goal-fix-pr (5m, max 10) → merge. | PR URL, merge |
 
@@ -875,8 +906,8 @@ After Step 12, orch presents ship gate.
 
 **Pipeline (Create PR + monitor):**
 1. `git push -u origin {branch}` (skip if pushed).
-2. `gh pr create --head {branch} --base {baseBranch}`. Reuse open PR.
-3. Dispatch `11-ship-pr` ([SKILL.md](../11-ship-pr/SKILL.md)): 300s initial wait → heartbeat: fetch → fix-pr if `activeThreads>0` → commit → resolve → push → 120s wait. Max 10 iterations. Convergence → `gh pr checks --watch` → `gh pr merge --merge`. Never `--delete-branch` with head=`develop`.
+2. Resolve `providers.scm` (same algorithm as Specification Protocol) → load that provider skill ([`github-provider`](../github-provider/SKILL.md) or [`azure-devops-provider`](../azure-devops-provider/SKILL.md)).
+3. Dispatch `11-ship-pr` ([SKILL.md](../11-ship-pr/SKILL.md)): scm intents `create-pr` → goal-fix-pr loop (`list-threads` / `resolve-thread` via `08`/`09`) → checks wait → `merge-pr`. Never delete `project.workingBranch` (default `develop`) after merge.
 4. Auto: auto-selects merge, skill auto-gates per `09-goal-fix-pr`.
 
 **Output:** `step-output` with `pr: {number, url, state}`, `goalFixPr: {iterations, max, activeThreadsRemaining, merged}`.
@@ -891,7 +922,7 @@ Retry: max 3; backoff 0s→30s→60s. Revert: Checkpoint Algorithm only. Conduct
 
 ## Post-workflow (outside this agent)
 
-Manual QA after workflow completion (or pause before Step 12) not resumed here. Use [`10-update-plan-implementation`](../10-update-plan-implementation/SKILL.md) (`/step-10`) — append plan §9, implement delta, update `{slug}.result.md`, certify for PR. Distinct from Step 10 (in-pipeline review fixes).
+Manual QA after workflow completion (or pause before Step 12) not resumed here. Use [`step-10-update-plan-implementation`](../10-update-plan-implementation/SKILL.md) (`/step-10`) — append plan §9, implement delta, update `{slug}.result.md`, certify for PR. Distinct from Step 10 (in-pipeline review fixes).
 
 ## Triggers
 

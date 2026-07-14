@@ -1,0 +1,145 @@
+{
+  "$schema": "./config.schema.json",
+  "_comment": "Copy to config.json, fill in your project details. config.json is gitignored — never commit it. toolsFile points to the tool vocabulary all agents use.",
+  "toolsFile": "tools.md",
+
+  "project": {
+    "name": "<PROJECT_NAME>",
+    "org": "<GITHUB_ORG>",
+    "repoUrl": "https://github.com/<ORG>/<REPO>",
+    "baseBranch": "master",
+    "workingBranch": "develop",
+    "gitRemote": "origin"
+  },
+
+  "stack": {
+    "id": "<STACK_ID e.g. dotnet-react, node-nextjs, python-django>",
+    "description": "<Brief stack description>",
+
+    "backend": {
+      "framework": "<e.g. .NET 10, Node 22, Python 3.12>",
+      "language": "<e.g. C#, TypeScript, Python>",
+      "solutionFile": "<e.g. MyApp.slnx, package.json, pyproject.toml>",
+      "srcDir": "src",
+      "layers": [
+        { "name": "<layer>", "path": "<path>", "role": "<responsibilities>" }
+      ],
+      "testProject": "<e.g. tests/MyApp.Tests/MyApp.Tests.csproj>",
+      "apiHost": "http://localhost:5000",
+      "apiPort": 5000
+    },
+
+    "frontend": {
+      "framework": "<e.g. React 19 + Vite, Next.js 14, Vue 3>",
+      "language": "<e.g. TypeScript, JavaScript>",
+      "sourceDir": "<e.g. web/src, src/app>",
+      "buildDir": "<e.g. web>",
+      "devHost": "http://localhost:3000",
+      "devPort": 3000,
+      "i18n": {
+        "framework": "<e.g. react-i18next, next-intl, none>",
+        "localesDir": "<path to locale files>",
+        "locales": ["<e.g. en-US>"]
+      }
+    },
+
+    "database": {
+      "type": "<e.g. PostgreSQL, SQLite, MongoDB>",
+      "orm": "<e.g. Entity Framework Core, Prisma, Drizzle>",
+      "migrationsProject": "<path>",
+      "startupProject": "<path>",
+      "seedScript": "<e.g. scripts/seed.sh>"
+    },
+
+    "orchestration": {
+      "devCommand": "<e.g. npm run dev>",
+      "startCommand": "<e.g. npm start>",
+      "stopCommand": "<e.g. npm stop>",
+      "composeCommand": "<e.g. docker compose up --build>"
+    }
+  },
+
+  "domain": {
+    "model": "<Brief domain model description>",
+    "tenancyField": "<e.g. CompanyId, TenantId>",
+    "platformPrefix": "<e.g. /api/v1/platform>",
+    "glossaryFile": "CONTEXT.md",
+    "designTokens": "DESIGN.md",
+    "architectureSpec": "<path to architecture spec doc>"
+  },
+
+  "providers": {
+    "_comment": "active = work-item/spec source (github | azure-devops | local). scm = PR/thread host (github | azure-devops only; never local). Hybrid example: active=local + scm=github (local specs, GitHub PRs). If scm omitted: when active is github|azure-devops → scm=active; when active=local → infer from project.repoUrl host (github.com → github; dev.azure.com|visualstudio.com → azure-devops) or STOP and set scm explicitly. LEGACY: omit this entire providers block to infer active from issueTrackers.*.enabled (GitHub if enabled, else Azure DevOps, else local).",
+    "active": "github",
+    "scm": "github"
+  },
+
+  "issueTrackers": {
+    "github": {
+      "enabled": true,
+      "owner": "<GITHUB_ORG>",
+      "repo": "<GITHUB_REPO>",
+      "cli": "gh",
+      "issueToSpecScript": ".agents/skills/github-provider/scripts/github-issue-to-spec.py"
+    },
+    "azureDevOps": {
+      "enabled": false,
+      "_comment": "Set enabled: true and fill org/project. Put token in ADO_PAT (or AZURE_DEVOPS_PAT) — never commit it.",
+      "org": "",
+      "project": "",
+      "patEnvVar": "ADO_PAT",
+      "apiBase": "https://dev.azure.com",
+      "workItemToSpecScript": ".agents/skills/azure-devops-provider/scripts/ado-workitem-to-spec.py"
+    }
+  },
+
+  "verification": {
+    "backendBuild": "<e.g. dotnet build MyApp.slnx, npm run build, pytest>",
+    "backendTest": "<e.g. dotnet test tests/MyApp.Tests, npm test, pytest>",
+    "backendFormat": "<e.g. dotnet format MyApp.slnx --verify-no-changes, npm run lint>",
+    "frontendBuild": "<e.g. cd web && npm run build>",
+    "frontendTest": "<e.g. cd web && npm test>",
+    "migrationsAdd": "<e.g. dotnet ef migrations add {Name} -p src/Infrastructure -s src/Api>",
+    "migrationsApply": "<e.g. dotnet ef database update -p src/Infrastructure -s src/Api>"
+  },
+
+  "dagThresholds": {
+    "_comment": "If ALL criteria are within limits, execMode is sequential (skip DAG).",
+    "maxImplementationSteps": 3,
+    "maxExpectedFiles": 6,
+    "maxLayers": 2
+  },
+
+  "defaults": {
+    "autoMode": false,
+    "dryRun": false,
+    "skipIntegration": false,
+    "skipTests": false,
+    "fullMode": false
+  },
+
+  "plans": {
+    "dir": ".cursor/plans",
+    "_comment_specsDir": "Default human-facing local specs dir (repo root). local-spec-provider uses this when providers.active=local; canonical copy stays under {plans.dir}/{slug}/step-00-*.spec.md.",
+    "specsDir": "specs",
+    "worktreesDir": ".cursor/plans/{slug}/worktrees"
+  },
+
+  "rules": {
+    "harness": "AGENTS.md",
+    "seniorDeveloper": ".agents/skills/senior-developer/SKILL.md",
+    "karpathyGuidelines": ".agents/skills/shared/karpathy-guidelines/SKILL.md",
+    "viewPatterns": "",
+    "efMigrations": ".cursor/rules/ef-migrations.mdc",
+    "stackFile": "STACK.md"
+  },
+
+  "invariants": {
+    "entitiesAreClassNotRecord": true,
+    "migrationsCliOnly": true,
+    "tenancyViaGlobalQueryFilters": true,
+    "efOnlyInInfrastructure": true,
+    "noInlineHandWrittenMigrations": true,
+    "commitPlanFilesOnlyAtStep12": true
+  }
+}

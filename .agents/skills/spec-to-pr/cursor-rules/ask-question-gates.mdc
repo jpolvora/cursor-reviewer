@@ -1,0 +1,16 @@
+---
+description: Force native AskQuestion for all selectable user gates in Agent chat
+alwaysApply: true
+---
+
+# AskQuestion — forced user gates
+
+When the user must choose among discrete options (workflow gates, confirmations, yes/no, model switch, pause/continue):
+
+1. **Check** whether the native tool `AskQuestion` is in this turn’s callable tool list.
+2. **Always call `AskQuestion`** for that choice in the same turn (do not only print a numbered markdown list).
+3. Use ≥2 short options; put the recommended option first.
+4. If the runtime returns `Tool not found: AskQuestion` (or equivalent), log that failure and only then use a markdown fallback menu.
+5. Never infer “yes” from silence or cancelled UI.
+
+This applies especially to `/spec-to-pr` transition gates (`user-gate`).

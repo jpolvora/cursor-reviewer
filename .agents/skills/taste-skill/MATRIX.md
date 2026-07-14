@@ -6,9 +6,9 @@ Matrix register is **product** (operations console). taste-skill targets landing
 
 | Surface | Skill |
 |---------|--------|
-| Admin / member / platform app shell (`web/src/components/layout`, shared UI) | [impeccable](.cursor/skills/impeccable/SKILL.md) + taste-skill **§0 Brief inference**, **§4.4–4.6** (materiality, states, forms) |
-| Tenant public sites (`web/src/pages/public-sites`) | taste-skill full + [impeccable](.cursor/skills/impeccable/SKILL.md) brand register |
-| Redesign / anti-slop pass on existing UI | taste-skill audit-first + impeccable `polish` / `quieter` |
+| Admin / member / platform app shell (`web/src/components/layout`, shared UI) | Optional global skill `.cursor/skills/impeccable/SKILL.md` (**skip if absent**) + taste-skill **§0 Brief inference**, **§4.4–4.6** (materiality, states, forms) |
+| Tenant public sites (`web/src/pages/public-sites`) | taste-skill full + optional impeccable brand register (**skip if absent**) |
+| Redesign / anti-slop pass on existing UI | taste-skill audit-first + optional impeccable `polish` / `quieter` (**skip if absent**) |
 
 ## Matrix design read (default)
 

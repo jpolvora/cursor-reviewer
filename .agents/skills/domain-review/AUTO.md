@@ -21,7 +21,7 @@ report → apply C/W fixes → stamp → verify → commit → push branch → g
 
 1. Treat `auto` as **YES** for every Critical + Warning ID in the fix plan.
 2. Skip Enhancements unless the user also said to include them.
-3. Surgical diffs only ([karpathy](../karpathy-guidelines/SKILL.md)); stay inside domain perimeter + necessary tests/docs.
+3. Surgical diffs only ([karpathy](../shared/karpathy-guidelines/SKILL.md)); stay inside domain perimeter + necessary tests/docs.
 4. If Findings = none → still stamp (refresh **Date**), then skip code commit unless stamp/docs alone warrant a docs PR (prefer one docs commit on the auto branch).
 
 ### 2. Stamp
@@ -30,7 +30,7 @@ Update `## Last review` on `specs/domains/{slug}.md` with **today's** Date and p
 
 ### 3. Verify
 
-Per [AGENTS.md](../../../AGENTS.md) § Verification + [senior-developer](../senior-developer/SKILL.md):
+Per [AGENTS.md](../../../AGENTS.md) § Verification + [senior-developer](../../../AGENTS.md#external-dependencies) (resolve via `config.json.rules.seniorDeveloper`):
 
 ```bash
 # Run build/test verification commands configured in config.json.verification
@@ -108,7 +108,7 @@ Loop:
 2. Critical/Warning before → after.
 3. Branch, commit hash(es), PR URL.
 4. goal-fix-pr iterations + final `activeThreads`.
-5. Code review proof ([senior-developer](../senior-developer/SKILL.md)) + Learning + Changelog.
+5. Code review proof ([senior-developer](../../../AGENTS.md#external-dependencies)) + Learning + Changelog.
 
 ## Combinations
 

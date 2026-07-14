@@ -15,7 +15,7 @@ Verify the spec-to-pr FSM executes without error in simulated mode, covering all
 
 ## Prerequisites
 
-1. **BOOTSTRAP** section in [`setup.md`](setup.md) — ensure `.agents/skills/spec-to-pr/config.json` points at this repo. If absent, create one:
+1. **BOOTSTRAP** section in [`setup.md`](../shared/setup.md) — ensure `.agents/skills/shared/config.json` points at this repo. If absent, create one:
 
     ```json
     {
@@ -167,7 +167,7 @@ Or reuse for the next dry-run iteration (workflow auto-detects and resumes).
 
 | Symptom | Likely cause | Fix |
 |---------|-------------|-----|
-| `.agents/skills/spec-to-pr/config.json` not found | Config not in skill directory | Create minimal config (see prerequisites) |
+| `.agents/skills/shared/config.json` not found | Config not in skill directory | Create minimal config (see prerequisites) |
 | Step 1/2 not skipped with simple spec | Dynamic Execution threshold not met | Expected — workflow still runs correctly, just slower |
 | Step 11 tries browser | `dry-run` not parsed | Confirm `dry-run` flag is before spec path |
 | Step 13 not reached | `full` flag absent | Add `full` before spec path |

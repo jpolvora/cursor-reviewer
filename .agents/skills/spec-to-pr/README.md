@@ -2,7 +2,7 @@
 
 > **Human audience.** Orchestrator FSM lives in [`SKILL.md`](SKILL.md) — English agent contract; do not use it for onboarding. Use this README + FAQ + diagrams.
 >
-> **v10.0:** English-only output. Native tools (`Task`, `AskQuestion`, `Shell`, MCP). Tools via [`tools.md`](tools.md). Config via [`config.json`](.agents/skills/spec-to-pr/config.json). Project-agnostic — skills detect stack from config. Steps delegate skills `00`–`07`, `09`, `11`. Step 0 Spec Creation. `--full` flag activates Step 13 (Ship & PR). Per-step model recording.
+> **v10.0:** English-only output. Native tools (`Task`, `AskQuestion`, `Shell`, MCP). Tools via [`tools.md`](../shared/tools.md). Config via [`config.json`](../shared/config.json) (repo-root: `.agents/skills/shared/config.json`). Project-agnostic — skills detect stack from config. Steps delegate skills `00`–`07`, `09`, `11`. Step 0 Spec Creation. `--full` flag activates Step 13 (Ship & PR). Per-step model recording.
 >
 > **Identity:** Primary invoke `/spec-to-pr` / `@[spec-to-pr]`. Legacy aliases: `/us-workflow`, `/us-delivery-workflow`. Runtime git tags still use `uswf/`; plan slugs still use `us-{id}`.
 
@@ -21,7 +21,7 @@ The **`spec-to-pr`** workflow coordinates execution steps through composable ski
 | **This README** | Humans + agents | Overview, phases, steps, gates, happy path |
 | [`docs/faq.md`](docs/faq.md) | Humans + clients | FAQ in execution order — what each step does, input/output, common questions |
 | [`SKILL.md`](SKILL.md) | **Agent (FSM)** | English agent contract; no plan-dir commits until Step 12; `{slug}.result.md` delivery |
-| [`stack.md`](stack.md) | Orchestrator + sub-agents | Stack definition — build/test commands, paths, rules, diff scope |
+| [`stack.md`](../shared/stack.md) | Orchestrator + sub-agents | Stack definition — build/test commands, paths, rules, diff scope |
 | [`DIAGRAM.md`](DIAGRAM.md) | Visual reference | Mermaid flowcharts |
 
 **Project entry:** [`AGENTS.md`](../../../AGENTS.md).
@@ -228,14 +228,14 @@ Shortcut: Step 7 **Re-implement with different Coder model** = return to Step 5.
 | **State Hygiene** | all | Mandatory state sync post-step + asserts (`validate_state.py`) |
 | **Learning & Memory** | all (start + end + Step 12) | Read and update state (`state.md`) and `MEMORY.md` to reuse technical learnings and avoid repeating errors |
 | **Context loading** | 1, 2, 5 | Docs, rules, domain glossary |
-| **Specification** | 0 (fetch/resolve), 1–2/6/11 (read) | Entry: **US id** or **`*.spec.md`**. GitHub: `gh issue view {n}` → `*.issue.json` → `github-issue-to-spec.py` → **`{slug}.spec.md`** (canonical). Downstream skills read **spec**, not raw issue |
+| **Specification** | 0 (fetch/resolve), 1–2/6/11 (read) | Entry: **US id**, ADO id, or **`*.spec.md`**. Resolve `providers.active` → provider skill `fetch-to-spec` → **`step-00-{slug}.spec.md`** (canonical). Downstream skills read **spec**, not raw tracker JSON |
 | **Memory-conflict** | 2, 3 | Python script vs `MEMORY.md` (root) |
 | **Integration validation** | 11 | Plan + browser/API/seed execution |
 | **Step checkpoint** | 0–12 | Git tags `uswf/{id}/before-step-{N}` |
 | **Step dispatch** | 1–11 | Dedicated sub-agent + anchor tag + step-scoped worktree (5/10/11) |
 | **Checkpoint revert** | reset / previous / repeat | Scoped revert via `## Step file log` |
 
-Local scripts: `.agents/skills/spec-to-pr/scripts/check_memory_conflict.py`, `.agents/skills/spec-to-pr/scripts/validate_state.py`
+Orchestrator scripts: `.agents/skills/spec-to-pr/scripts/check_memory_conflict.py`, `validate_state.py`. Issue/WI converters: canonical under `github-provider/scripts/` and `azure-devops-provider/scripts/` (shims under `spec-to-pr/scripts/`).
 
 ---
 

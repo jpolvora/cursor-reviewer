@@ -29,7 +29,7 @@ Orchestrator only. Does **not** replace [domain-review](../domain-review/SKILL.m
 
 `age_days = today − Date` (calendar days). `cutoff = today − 7` (example: today `2026-07-08` → cutoff `2026-07-01`).
 
-1. Slugs from [`specs/domains/index.md`](../../../specs/domains/index.md) § Index **main table only** (not Subdomains).
+1. Slugs from [`specs/domains/index.md`](../../../specs/domains/index.md) § Index **main table only** (not Subdomains). If the file is missing, **STOP** (consumer must add the catalog — see `specs/domains/index.md.example`).
 2. Per slug: `specs/domains/{slug}.md` → `## Last review` → **Date** (`YYYY-MM-DD`). Missing = never reviewed.
 3. **Enqueue** if never reviewed **OR** `age_days >= 7` (equiv. `Date <= cutoff`).
 4. **Skip** if `age_days < 7` (equiv. `Date > cutoff`). Example today `2026-07-08`: Date `2026-07-02`…`08` skip; Date `2026-07-01` or earlier enqueue.
