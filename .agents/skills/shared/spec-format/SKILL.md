@@ -13,7 +13,7 @@ version: 1.0
 
 Skill to **create**, **review**, or **format** local specifications (`*.spec.md`) — a single, portable artifact for a feature/US. Replaces direct GitHub reading in downstream skills; all read `*.spec.md` from the working directory.
 
-> **Canonical source of the `*.spec.md` format.** Other skills and `spec-to-pr` **reference** this skill — they do not duplicate frontmatter, sections, or validation rules. See also [`AGENTS.md`](../../../../../AGENTS.md) § Skill loading.
+> **Canonical source of the `*.spec.md` format.** Other skills and `spec-to-pr` **reference** this skill — they do not duplicate frontmatter, sections, or validation rules. See also [`AGENTS.md`](../../../../AGENTS.md) § Skill loading.
 
 > **Language:** responses to user in **en-us**.
 
@@ -102,7 +102,7 @@ specDate: 2026-07-02  # generation date or last relevant update
 
 1. Read the provided `*.spec.md` (or locate in `{us-dir}/`).
 2. Validate frontmatter, required sections, and AC quality (enumerable, testable, unambiguous).
-3. Cross-reference with [`docs/superpowers/specs/2026-05-27-matrix-saas-design.md`](../../../../../docs/superpowers/specs/2026-05-27-matrix-saas-design.md) when there is parity with legacy.
+3. Cross-reference project architecture docs when present (`CONTEXT.md`, `STACK.md`, or paths from `config.json.domain` / `rules.stackFile`) — do not assume a consumer-specific SaaS design doc.
 4. Emit report:
 
 | Check | Status | Proposed fix |
@@ -115,19 +115,20 @@ specDate: 2026-07-02  # generation date or last relevant update
 
 ## Flow — create mode
 
-1. Collect title, description, and ACs (free text, GitHub via `gh`, Azure DevOps via `ado-workitem-to-spec.py`, or user draft).
-2. If input is a GitHub issue number: `gh issue view {n}` + `.agents/skills/spec-to-pr/scripts/github-issue-to-spec.py`.
-3. If input is an Azure DevOps work item: `.agents/skills/spec-to-pr/scripts/ado-workitem-to-spec.py` (see `spec-to-pr` → Specification Protocol).
-4. If input is an existing hand-written `*.spec.md`: validate/format in place or copy to the canonical `step-00-` path — do not invent tracker fields.
+1. Collect title, description, and ACs (free text, or via the active provider — see `spec-to-pr` → Provider resolution).
+2. If input is a GitHub issue number: dispatch `github-provider` `fetch-to-spec` (canonical script: `.agents/skills/github-provider/scripts/github-issue-to-spec.py`; legacy shim: `.agents/skills/spec-to-pr/scripts/github-issue-to-spec.py`).
+3. If input is an Azure DevOps work item: dispatch `azure-devops-provider` `fetch-to-spec` (canonical: `.agents/skills/azure-devops-provider/scripts/ado-workitem-to-spec.py`; legacy shim under `spec-to-pr/scripts/`).
+4. If input is an existing hand-written `*.spec.md`: dispatch `local-spec-provider` register/normalize to the canonical `step-00-` path — do not invent tracker fields.
 5. Generate/confirm file at the canonical path with complete frontmatter and sections.
 6. Confirm final path to user.
 
 ## Downstream consumers
 
-`spec-to-pr`, `01-write-plan`, `02-interview`, `05-verify-plan`, `07-integration-validation` read **`{us-dir}/step-00-{slug}.spec.md`** — never live tracker APIs and never `*.issue.json`. See [`ARTIFACTS.md`](../../ARTIFACTS.md).
+`spec-to-pr`, `write-plan`, `interview`, `verify-plan`, `integration-validation` read **`{us-dir}/step-00-{slug}.spec.md`** — never live tracker APIs and never `*.issue.json`. See [`ARTIFACTS.md`](../../spec-to-pr/ARTIFACTS.md).
 
 ## References
 
-- Harness routing: [`AGENTS.md`](../../../../../AGENTS.md)
-- Architecture: [`docs/superpowers/specs/2026-05-27-matrix-saas-design.md`](../../../../../docs/superpowers/specs/2026-05-27-matrix-saas-design.md)
+- Harness routing: [`AGENTS.md`](../../../../AGENTS.md)
+- Architecture: project `CONTEXT.md` / `STACK.md` / `config.json.domain` (when present)
 - Workflow protocol: [`../../spec-to-pr/SKILL.md`](../../spec-to-pr/SKILL.md) → Specification Protocol
+- Providers: [`github-provider`](../../github-provider/SKILL.md), [`azure-devops-provider`](../../azure-devops-provider/SKILL.md), [`local-spec-provider`](../../local-spec-provider/SKILL.md)

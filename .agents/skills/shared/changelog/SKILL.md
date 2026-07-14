@@ -5,7 +5,7 @@ description: Write a summarized historical record of the task into CHANGELOG.md.
 
 # Changelog
 
-**Mandatory completion gate** — run after [learning](../learning/SKILL.md) at the end of implementation tasks.
+**Mandatory completion gate** — run after [self-learning](../self-learning/SKILL.md) at the end of implementation tasks.
 
 ## When to run
 

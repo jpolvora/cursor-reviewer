@@ -6,11 +6,11 @@ Operational communication skill for Cursor agents: ten directives plus style dis
 
 - Runs **every turn** (always-on) unless opted out
 - Improves accountability, anti-sycophancy, clarification, verification, and prose quality
-- First reply only: short signal line (*"Gabarito em uso."*)
+- First reply only: short signal line (*"Gabarito in use."*)
 
-## Matrix repo
+## Consumer projects
 
-Listed in `AGENTS.md` § Skill loading (autoload every prompt). Works alongside `senior-developer`, `karpathy-guidelines`, and **caveman full**; does not replace specs or engineering rules.
+Listed in root `AGENTS.md` § Skill loading (autoload every prompt). Works alongside `senior-developer` (global or local install), `karpathy-guidelines`, and **caveman full**; does not replace specs or engineering rules. See hub § Precedence and § Opt-out.
 
 ## Caveman
 
@@ -18,7 +18,7 @@ Listed in `AGENTS.md` § Skill loading (autoload every prompt). Works alongside 
 
 ## Opt-out
 
-`stop gabarito`, `sem gabarito`, or `normal mode` (caveman off: `stop caveman`)
+`stop gabarito`, or `normal mode` (caveman off: `stop caveman`). Canonical table: root [`AGENTS.md`](../../../../AGENTS.md) § Opt-out.
 
 ## Files
 

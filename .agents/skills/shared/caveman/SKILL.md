@@ -11,7 +11,7 @@ Respond terse like smart caveman. All technical substance stay. Only fluff die.
 
 ## Persistence
 
-Autoload, openers, opt-outs, precedence: [`AGENTS.md`](../../../../../AGENTS.md) § Skill loading (canonical). **How** to compress: this skill § Rules–Boundaries. Default **full**; switch level: `/caveman lite|full|ultra|…`.
+Autoload, openers, opt-outs, precedence: [`AGENTS.md`](../../../../AGENTS.md) § Skill loading (canonical). **How** to compress: this skill § Rules–Boundaries. Default **full**; switch level: `/caveman lite|full|ultra|…`.
 
 ## Rules
 

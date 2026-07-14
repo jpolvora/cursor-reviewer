@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 # 10-update-plan-implementation (Post-Workflow Fixes)
 
-Responsible for capturing manual QA findings and implementing delta corrections after the main workflow finishes. It appends the delta plan (Â§9) to the finalized plan file and updates the delivery results document.
+Responsible for capturing manual QA findings and implementing delta corrections after the main workflow finishes. It appends the delta plan (§9) to the finalized plan file and updates the delivery results document.
 
 ---
 
@@ -60,7 +60,7 @@ Resolve the working directories and target artifacts:
 | `F-01` | manual QA | blocker | (Details of the gap) | (Expected output) | `path:line` |
 
 ### Phase 3 — Delta Plan
-- Append **Â§9 Post-workflow follow-up** to the finalized plan file (`step-02-{slug}.plan.refined.md` if exists, otherwise `step-01`).
+- Append **§9 Post-workflow follow-up** to the finalized plan file (`step-02-{slug}.plan.refined.md` if exists, otherwise `step-01`).
 - Section 9 outlines: `session-id`, `triggered`, `after-workflow`, `branch`, list of `Findings` (F-01, F-02), `Delta implementation steps` (S-01, S-02), and a `Certification` checklist.
 
 ### Phase 4 — Implementation & Scoped Validation
@@ -70,6 +70,6 @@ Resolve the working directories and target artifacts:
 
 ### Phase 5 — Verification & Certification
 - Verify that every blocker finding is marked as resolved.
-- Record commit hashes in the plan's Â§9 commits table.
+- Record commit hashes in the plan's §9 commits table.
 - Update `step-12-{slug}.result.md` (append new fixes to the Done section).
 - Present the **PR Readiness Summary** in English.

@@ -7,13 +7,13 @@ description: >
 
 # TDD / SDD / DDD Code Reviewer
 
-On-demand Layer 2 skill per [`AGENTS.md`](../../../AGENTS.md) § Skill loading. **Does not replace** [code-review](../06-code-review/SKILL.md) or auto-loaded [senior-developer](../senior-developer/SKILL.md).
+On-demand Layer 2 skill per [`AGENTS.md`](../../../AGENTS.md) § Skill loading. **Does not replace** [code-review](../06-code-review/SKILL.md) or [senior-developer](../../../AGENTS.md#external-dependencies) (resolve via `config.json.rules.seniorDeveloper`).
 
 ## Precedence
 
 1. User message
-2. Design spec → [senior-developer](../senior-developer/SKILL.md) (EF, tenancy, tests)
-3. [karpathy-guidelines](../spec-to-pr/extra-skills/karpathy-guidelines/SKILL.md) (surgical diffs — no drive-by rewrites)
+2. Design spec → [senior-developer](../../../AGENTS.md#external-dependencies) (EF, tenancy, tests)
+3. [karpathy-guidelines](../shared/karpathy-guidelines/SKILL.md) (surgical diffs — no drive-by rewrites)
 4. This skill (layer boundaries, testability, async/DI patterns)
 5. [security-review](../security-review/SKILL.md) for OWASP / exploit paths
 
@@ -36,7 +36,7 @@ On-demand Layer 2 skill per [`AGENTS.md`](../../../AGENTS.md) § Skill loading. 
 
 ### Architectural audit
 
-- **SDD (spec-driven design):** behavior matches locked design spec; API/domain terms align with [`CONTEXT.md`](../../../CONTEXT.md).
+- **SDD (spec-driven design):** behavior matches locked design spec; API/domain terms align with project `CONTEXT.md` when present (else consumer glossary / stack docs).
 - **DDD:** `Core` has no Infrastructure/API references; business rules in services, not controllers; thin controllers.
 - **TDD:** logic testable without hidden globals/`DateTime.UtcNow`; frontend tests query by accessibility role.
 

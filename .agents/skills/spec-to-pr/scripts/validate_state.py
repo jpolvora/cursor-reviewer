@@ -28,13 +28,26 @@ import subprocess
 import sys
 from pathlib import Path
 
+
+def ensure_utf8_stdio() -> None:
+    """Force UTF-8 on stdio so Windows locale (cp1252) does not break text I/O."""
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if not callable(reconfigure):
+            continue
+        try:
+            reconfigure(encoding="utf-8")
+        except Exception:
+            pass
+
+
 AGENT_ROOT = Path(__file__).resolve().parent.parent          # .../spec-to-pr
-REPO_ROOT = Path(__file__).resolve().parents[3]              # repo root
+REPO_ROOT = Path(__file__).resolve().parents[4]              # repo root (.agents/skills/spec-to-pr/scripts → 4 up)
 PLANS_DIR = None  # resolved lazily via load_plans_dir()
 
 def load_plans_dir() -> Path:
-    """Resolve plans.dir from spec-to-pr config.json (default .cursor/plans)."""
-    cfg = AGENT_ROOT / "config.json"
+    """Resolve plans.dir from shared config.json (default .cursor/plans)."""
+    cfg = REPO_ROOT / ".agents" / "skills" / "shared" / "config.json"
     plans = Path(".cursor") / "plans"
     if cfg.exists():
         try:
@@ -270,8 +283,7 @@ def validate(state_path: Path) -> dict:
 
 
 def main():
-    if sys.platform == "win32":
-        sys.stdout.reconfigure(encoding="utf-8")
+    ensure_utf8_stdio()
 
     as_json = "--json" in sys.argv
     args = [a for a in sys.argv[1:] if not a.startswith("--")]

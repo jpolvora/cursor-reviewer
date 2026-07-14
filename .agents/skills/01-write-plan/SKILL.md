@@ -73,7 +73,7 @@ Steps ordered logically by dependency:
 - Step 4: Frontend & UI (components, API integrations, page layouts).
 - Step 5: Frontend Tests (testing UI components and workflows).
 
-*For each step, specify: Action details Â· Affected files Â· Engineering checks.*
+*For each step, specify: Action details · Affected files · Engineering checks.*
 
 ## 4. Permissions, Tenancy & i18n
 - RBAC permissions, tenant data leakage isolation checks, and dynamic i18n strings.

@@ -13,7 +13,7 @@ On-demand Layer 2. **Not** PR/branch review ([code-review](../06-code-review/SKI
 
 **REQUIRED SUB-SKILL (BE):** [dotnet-security-performance-review](../dotnet-security-performance-review/SKILL.md) on every review that touches `src/`. Fold findings into [REPORT.md](REPORT.md) Critical/Warning + fix plan (not that skill's 4-section report).
 
-**Catalog:** [`specs/domains/index.md`](../../../specs/domains/index.md). **`auto` pipeline:** [AUTO.md](AUTO.md).
+**Catalog:** [`specs/domains/index.md`](../../../specs/domains/index.md) when present (see [`index.md.example`](../../../specs/domains/index.md.example) for a starter). If the catalog is missing, **STOP** and ask the consumer to add `specs/domains/` or pass an explicit slug + contract path. **`auto` pipeline:** [AUTO.md](AUTO.md).
 
 ## Parse
 

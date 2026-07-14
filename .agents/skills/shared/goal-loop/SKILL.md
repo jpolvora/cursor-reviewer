@@ -51,7 +51,7 @@ A **sentinel** is a singleton background timer that wakes the agent after `WAIT_
 # Prefer spec-to-pr runtime when available:
 #   {config.plans.dir}/{slug}/.runtime/
 # Fallback:
-#   .agents/skills/spec-to-pr/extra-skills/goal-loop/runs/<ID>/
+#   .agents/skills/shared/goal-loop/runs/<ID>/
 
 RUNTIME_DIR="<resolved runtime dir>"
 mkdir -p "$RUNTIME_DIR"
@@ -174,6 +174,6 @@ When `DRY_RUN=true`:
 
 | Resource | Path |
 |----------|------|
-| Run artifacts | `$RUNTIME_DIR/` or `.agents/skills/spec-to-pr/extra-skills/goal-loop/runs/<ID>/` |
+| Run artifacts | `$RUNTIME_DIR/` or `.agents/skills/shared/goal-loop/runs/<ID>/` |
 | Sentinel tracking | `$RUNTIME_DIR/sentinel.pid` |
-| Artifact registry | [ARTIFACTS.md](../../ARTIFACTS.md) |
+| Artifact registry | [ARTIFACTS.md](../../spec-to-pr/ARTIFACTS.md) |

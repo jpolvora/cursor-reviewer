@@ -49,7 +49,7 @@ Generate `step-11-{slug}.integration-test.plan.md` containing:
 1. **Target Hosts & Ports:** Resolves URLs and credentials using stack settings.
 2. **Database State & Seeding:** Minimum seed datasets required per AC, and database rollback actions.
 3. **API Contracts:** Expected HTTP status codes, Bearer JWT authorization headers, and error shapes.
-4. **RBAC & Tenancy Isolation:** Matrix checking access control across roles, and data segregation filters.
+4. **RBAC & Tenancy Isolation:** Systematic checking of access control across roles, and data segregation filters.
 5. **UI & Browser Paths:** Route destinations, form fields, and translation checks.
 6. **Defect Thresholds:** Test case pass/fail metrics.
 
