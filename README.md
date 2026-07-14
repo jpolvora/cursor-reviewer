@@ -196,13 +196,14 @@ A arquitetura é modular e extensível. Para adicionar suporte a uma nova stack 
 
 ### Skills locais do `cursor-reviewer`
 
-As skills em `.agents/skills/` deste repositório são locais ao runner. Invocáveis no Cursor com `/code-review-self`, `/megabrain` ou `/solve-pr` quando anexadas à conversa:
+As skills em `.agents/skills/` deste repositório são locais ao runner. Invocáveis no Cursor com `/code-review-self`, `/megabrain`, `/solve-pr` ou `/spec-to-pr` quando anexadas à conversa:
 
 | Skill | Quando usar |
 | :--- | :--- |
 | `code-review-self` | Revisar diff/PR localmente pelo agente do IDE, espelhando `src/index.ts` em modo somente-leitura |
 | `megabrain` | Revisão iterativa com threads numeradas; follow-up após commits de correção |
 | `solve-pr` | Implementar correções das threads abertas do bot e republicar na PR |
+| `spec-to-pr` | Fluxo agêntico completo Spec → Plan → Implement → Verify → Review → Ship PR |
 
 > [!TIP]
 > Para obter mais informações sobre outras diretrizes e skills genéricas reutilizáveis (como `code-review` ou `fix-pr`), consulte o repositório centralizado [workflow-skills](https://github.com/jpolvora/workflow-skills).
